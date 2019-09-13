@@ -1,0 +1,9 @@
+---
+title: "Labo1_LoadData"
+author: "Pol"
+date: "13/9/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
