@@ -1,0 +1,328 @@
+---
+title: "Entrega1"
+author: "Pol Renau Miguel Angel Merino"
+date: \today
+output:
+  word_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    toc: no
+    toc_depth: '4'
+  pdf_document:
+    latex_engine: pdflatex
+    number_sections: yes
+    toc_depth: 4
+    toc: yes
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 12pt
+subtitle: 'Loading data and Sample selection'
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+# Load data
+
+Data is adult.data file located in the current active directory
+
+
+```{r}
+
+df<-read.table("adult.data",header=F, sep=",",fill=FALSE,              strip.white=TRUE,na.string="?")
+dim(df)
+names(df)
+
+names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation", 
+             "relationship", "race","sex", "capital.gain", "capital.loss", 
+             "hr.per.week", "country", "y.bin")
+summary(df)
+
+```
+
+## Sample selection
+
+You have to initialize generator seed and select a personal sample of 5000 observations
+
+```{r}
+set.seed(14121997)
+sam<-sort(sample(1:nrow(df),5000))
+
+
+str(df)
+
+# Select sample
+df<-df[sam,]
+
+```
+
+### Save sample binary file
+
+```{r}
+save(list="df",file="mostra.RData")
+```
+
+
+# Income Census Dataset
+
+## Description 
+
+*Input variables:* 
+
+  1.  age: continuous.
+  2.  workclass: Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.
+  3.  fnlwgt: continuous.
+  4.  education: Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.
+  5.  education-num: continuous.
+  6.  marital.status: Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  7.  occupation: Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.
+  7.  relationship: Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.
+  8.  race: White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.
+  9.  sex: Female, Male.
+  10.  capital.gain: continuous.
+  11.  capital.loss: continuous.
+  12.  hours.per.week: continuous. Numeric target.
+  13.  native.country: United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands.
+  15.  y.bin: Making more than $50K per year. Binary target.
+
+
+## Load Packages
+
+Carregarem tots els paquets necessaris per utilitzar al llarg de la pràctica.
+
+```{r}
+options(contrasts=c("contr.treatment","contr.treatment"))
+
+requiredPackages <- c("effects","FactoMineR","car", "factoextra","ggplot2","dplyr","ggmap","ggthemes","knitr")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+
+lapply(requiredPackages, require, character.only = TRUE)
+
+```
+
+## Load Sample
+
+Carreguem el model previament creat.
+
+```{r}
+# Clear objects
+rm(list=ls())
+# Clear plots
+if(!is.null(dev.list())) dev.off()
+
+# Command or Windows-like method
+load("mostra.RData")
+summary(df)
+```
+
+
+#Some useful functions
+ Definim totes les funcions que ens podran ser utils al llarg de la pràctica.
+
+```{r}
+calcQ <- function(x) {
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+       q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) }
+
+countNA <- function(x) {
+  mis_x <- NULL
+  for (j in 1:ncol(x)) {mis_x[j] <- sum(is.na(x[,j])) }
+  mis_x <- as.data.frame(mis_x)
+  rownames(mis_x) <- names(x)
+  mis_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {mis_i <- mis_i + as.numeric(is.na(x[,j])) }
+  list(mis_col=mis_x,mis_ind=mis_i) }
+```
+
+
+# Data Preparation
+
+Preparació de les dades, separem entre aquelles variables que tenen un valor numeric i aquelles que són descriptives
+
+```{r}
+names(df)
+vars_con<-names(df)[c(1,3,5,11:13)];vars_con
+vars_dis<-names(df)[c(2,4,6:10,14:15)];vars_dis
+
+summary(df[,vars_con]) # Example of descriptive for numeric variables
+
+summary(df[,vars_dis])
+
+
+```
+
+
+# Factor preparation
+
+## type.employer
+
+```{r}
+levels(df$type.employer)
+
+# Graphic tool for Univ EDA and factors
+barplot(table(df$type.employer))
+table(df$type.employer)
+
+# Conceptual decission : federal, local and state gov are grouped together - Private alone , Self-emp and the rest together
+
+# Use target means
+
+tapply(df$hr.per.week,df$type.employer,mean)
+df$f.type<-1
+ll<-which(df$type.employer == "Private");length(ll)
+df$f.type[ll]<-2
+df[ll,"f.type"]<-2 # f.type already available
+ll<-which(df$type.employer == "Self-emp-inc");length(ll)
+df$f.type[ll]<-3
+ll<-which(df$type.employer %in% c("Self-emp-not-inc","Never-worked","Without-pay"));length(ll)
+df$f.type[ll]<-4
+
+# Define f.type as a factor and use 'nice' level names
+
+paste0("f.typ-",c("Civil","Private","SelfEm","Other"))
+df$f.type<-factor(df$f.type,levels=1:4,labels=paste0("f.typ-",c("Civil","Private","SelfEm","Other")))
+
+summary(df$f.type)
+
+
+```
+
+## Sex - Change label names 
+
+```{r}
+levels(df$sex)<-paste0("Sex-",levels(df$sex))
+summary(df$sex)
+
+# Univariant EDA 
+100*table(df$sex)/nrow(df)
+prop.table(table(df$sex))
+
+# Graphic tools
+barplot(table(df$sex),main="Gender observations",col="orange")
+barplot(table(df$sex),main="Gender observations",col=rainbow(2))
+```
+
+## Numeric variables -  Discretization
+### Age
+
+```{r}
+summary(df$age)
+
+# Try 4 categories first
+quantile(df$age)
+
+cut(df$age,quantile(df$age))
+df$f.age<-factor(cut(df$age,quantile(df$age),include.lowest = T))
+summary(df$f.age)
+
+# Reasonable according to target?
+tapply(df$age,df$f.age,median) # OK
+
+# Alternative breaks defined at 30,40,50
+df$f.age<-factor(cut(df$age,c(17,29,39,49,90),include.lowest = T))
+summary(df$f.age)
+levels(df$f.age)<-paste0("f.age-",levels(df$f.age))
+
+```
+
+## Univariant EDA - Numeric variables
+
+### age
+```{r}
+# Numeric indicators - statistics
+summary(df$age)
+quantile(df$age,seq(0,1,by=0.1)) # Decils of df$age
+# Desviació tipus
+sd(df$age)
+# Variance 
+var(df$age)
+
+# Coefficient of variation
+sd(df$age)/mean(df$age)
+
+# Graphical tools
+hist(df$age)
+hist(df$age,main="Age histogram",col="orange")
+hist(df$age,main="Age histogram",col=rainbow(12))
+
+mm<-mean(df$age);dd<-sd(df$age);mm;dd
+hist(df$age,freq=F,30,main="Age histogram",col=rainbow(12))
+curve(dnorm(x,mean=mm,sd=dd),col="cyan",lwd=3,add=T)
+
+# Outlier detection
+boxplot(df$age,main="Boxplot age")
+summary(df$age)
+outsev<-48+3*(48-27)
+outsua<-48+1.5*(48-27);outsev;outsua
+abline(h=outsua,col="red",lwd=2,lty=2)
+```
+
+
+# Missing data: initial situation
+
+```{r}
+miss<-countNA(df)
+attributes(miss)
+miss$mis_col  # Number of missing values for each variable
+summary(df)
+miss$mis_ind # Number of missing values in variables for each observation
+summary(miss$mis_ind)
+quantile(miss$mis_ind,seq(0,1,0.1))
+```
+
+# Outliers and Errors: initial situation
+
+```{r}
+iout<-rep(0,nrow(df))
+jout<-rep(0,length(vars_con))
+
+ierr<-rep(0,nrow(df))
+jerr<-rep(0,ncol(df))
+```
+
+## hr.per.week (numeric target)
+
+```{r}
+summ<-summary(df$hr.per.week)
+boxplot(df$hr.per.week,main="Boxplot hr.per.week",col="orange")
+barplot(table(df$hr.per.week))
+
+iqr<-summ[5]-summ[2];iqr
+souts<-summ[5]+3*iqr  # upper threshold
+souti<-summ[2]-3*iqr# lower threshold
+souti;souts
+
+ll<-which((df$hr.per.week<souti)|(df$hr.per.week>souts));length(ll)
+
+ll<-which((df$hr.per.week<5)|(df$hr.per.week>80));length(ll)
+
+### Special treatment: target - Errors or Severe outliers - Remove
+
+dff<-df[-ll,]
+
+### End Special treatment: target - Errors or Severe outliers - Remove
+
+# Update iout,jout,ierr,jerr
+jerr[13]<-jerr[13]+length(ll)
+ierr[ll]<-ierr[ll]+1
+
+calcQ(df$hr.per.week)
+
+boxplot(dff$hr.per.week,main="Boxplot hr.per.week",col="orange")
+abline(h=calcQ(dff$hr.per.week)$souti,lwd=2,col="red",lty=2)
+abline(h=calcQ(dff$hr.per.week)$souts,lwd=2,col="red",lty=2)
+
+```
+
+Fer per totes les variables numèriques (outliers i errors) i factors (errors, si cal identifiqueu les categories missing).
+
+# Imputation
+
+Set some reasonable value to missing data. Missing can be an original missing or an error/outlier set to missing
+
+
+
