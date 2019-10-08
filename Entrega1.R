@@ -80,16 +80,12 @@ names(df)
 vars_con<-names(df)[c(1,3,5,11:13)];vars_con
 vars_dis<-names(df)[c(2,4,6:10,14:15)];vars_dis
 
+
+
+
 summary(df[,vars_con]) # Example of descriptive for numeric variables
 
 summary(df[,vars_dis])
-
-#veient el summary veiem per exemple que podem ajuntar les races, es a dir white or others.
-
-
-missingData<- which(is.na(df$race));length(missingData)
-
-
 
 
 levels(df$type.employer)
@@ -106,7 +102,6 @@ tapply(df$hr.per.week,df$type.employer,mean)
 df$f.type<-1
 ll<-which(df$type.employer == "Private");length(ll)
 df$f.type[ll]<-2
-df[ll,"f.type"]<-2 # f.type already available
 ll<-which(df$type.employer == "Self-emp-inc");length(ll)
 df$f.type[ll]<-3
 ll<-which(df$type.employer %in% c("Self-emp-not-inc","Never-worked","Without-pay"));length(ll)
@@ -126,33 +121,6 @@ barplot(table(df$f.type))
 
 ##############
 
-
-
-levels(df$country)
-
-barplot(table(df$country))
-table(df$country)
-
-# decició conceptual:-> agrupem el que no es United-States.
-
-
-tapply(df$hr.per.week,df$country,mean)
-
-df$f.country<-1
-ll<-which(df$country == "United-States");length(ll)
-df$f.country[ll]<-2
-df[ll,"f.country"]<-2 # f.type already available
-
-# Define f.type as a factor and use 'nice' level names
-
-df$f.country<-factor(df$f.country,levels=1:2,labels=paste0("f.country-",c("No-United-States","United-States")))
-
-summary(df$f.country)
-
-barplot(table(df$f.country))
-
-##############
-
 #marital: 
 
 
@@ -168,17 +136,14 @@ table(df$marital)
 tapply(df$hr.per.week,df$marital,mean)
 
 df$f.marital<-1
-ll<-which(df$marital %in% c("Married-AF-spouse","Married-civ-spouse","Married-spouse-absent"));length(ll)
-df$f.marital[ll]<-2
-df[ll,"f.marital"]<-2 # f.type already available
 ll<-which(df$marital %in% c ("Divorced","Separated")); length(ll)
+df$f.marital[ll]<-2
+ll<-which(df$marital == "Never-married"); length(ll)
 df$f.marital[ll]<-3
-df[ll,"f.marital"]<-3
-ll<-which(df$marital %in% c("Never-married","Widowed"))
+ll<-which(df$marital == "Widowed"); length(ll)
+df$f.marital[ll]<-4
 
-# Define f.type as a factor and use 'nice' level names
-
-df$f.marital<-factor(df$f.marital,levels=1:3,labels=paste0("f.marital-",c("Married","No- Married","Others")))
+df$f.marital<-factor(df$f.marital,levels=1:4,labels=paste0("f.marital-",c("Married","No- Married","Never-married","Widowed")))
 
 summary(df$f.marital)
 
@@ -191,33 +156,36 @@ barplot(table(df$f.marital))
 
 ##############
 
-#occupation: 
+#education: 
 
-summary(df[,vars_dis])
 
-levels(df$occupation)
+levels(df$education)
 
-barplot(table(df$occupation))
-table(df$occupation)
+barplot(table(df$education))
+table(df$education)
 
 # decició conceptual:-> agrupem el que no es United-States.
 
+tapply(df$hr.per.week,df$education,mean)
 
-tapply(df$hr.per.week,df$occupation,mean)
-
-df$f.country<-1
-ll<-which(df$country == "United-States");length(ll)
-df$f.country[ll]<-2
-df[ll,"f.country"]<-2 # f.type already available
+df$f.education<-1
+ll<-which(df$education == "Some-college")
+df$f.education[ll]<-2
+ll<-which(df$education %in% c("Doctorate","Bachelors","HS-grad","Masters"))
+df$f.education[ll]<-3
+ll<-which(df$education %in% c("Assoc-acdm","Assoc-voc"))
+df$f.education[ll]<-4
+ll<-which(df$education == "Prof-school")
+df$f.education[ll]<-5
 
 # Define f.type as a factor and use 'nice' level names
 
-df$f.country<-factor(df$f.country,levels=1:2,labels=paste0("f.country-",c("No-United-States","United-States")))
+df$f.education<-factor(df$f.education,levels=1:5,labels=paste0("f.education-",c("Non-Graduate","Some-college","University-Or-More","Assoc","Proof-school")))
 
-summary(df$f.country)
+summary(df$f.education)
 
-barplot(table(df$f.country))
-
+barplot(table(df$f.education))
+tapply(df$hr.per.week,df$f.education,mean)
 
 
 ##############
