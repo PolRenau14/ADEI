@@ -1,13 +1,13 @@
 
-
 df<-read.table("adult.data",header=F, sep=",",fill=FALSE,              strip.white=TRUE,na.string="?")
 dim(df)
 names(df)
 
-names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation", 
-             "relationship", "race","sex", "capital.gain", "capital.loss", 
+names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation",
+             "relationship", "race","sex", "capital.gain", "capital.loss",
              "hr.per.week", "country", "y.bin")
 summary(df)
+
 
 set.seed(14121997)
 sam<-sample(1:nrow(df),5000)
@@ -46,7 +46,7 @@ if(!is.null(dev.list())) dev.off()
 calcQ <- function(x) {
   s.x <- summary(x)
   iqr<-s.x[5]-s.x[2]
-  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3],
        q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) }
 
 countNA <- function(x) {
@@ -71,6 +71,7 @@ summary(df)
 
 #### Univariate Descriptive Analysis ##
 ## Agruparem les variables descriptives en factors, no totes, les que creguem convienients
+## I aquelles numeriques que considerem le discretitzarem.
 ##  Exploració de analisis de les dades.
 
 # Data Preparation
@@ -88,15 +89,20 @@ summary(df[,vars_con]) # Example of descriptive for numeric variables
 summary(df[,vars_dis])
 
 
+## Reagrupament de variables  descriptives
+
+
+### type.employer
+
 levels(df$type.employer)
 
-# Graphic tool for Univ EDA and factors
+
 barplot(table(df$type.employer))
 table(df$type.employer)
 
 # Conceptual decission : federal, local and state gov are grouped together - Private alone , Self-emp and the rest together
 
-# Use target means
+
 
 tapply(df$hr.per.week,df$type.employer,mean)
 df$f.type<-1
@@ -121,7 +127,7 @@ barplot(table(df$f.type))
 
 ##############
 
-#marital: 
+#marital:
 
 
 levels(df$marital)
@@ -129,7 +135,7 @@ levels(df$marital)
 barplot(table(df$marital))
 table(df$marital)
 
-# decició conceptual:-> agrupem els cassats, no cassats(Divorciats, separats), 
+# decició conceptual:-> agrupem els cassats, no cassats(Divorciats, separats),
 # altres ( viudes, i may cassats(assumint que normalment es gent jove els que mai son casats, y que viudus gent gran))
 
 
@@ -156,7 +162,7 @@ barplot(table(df$f.marital))
 
 ##############
 
-#education: 
+#education:
 
 
 levels(df$education)
@@ -188,6 +194,31 @@ barplot(table(df$f.education))
 tapply(df$hr.per.week,df$f.education,mean)
 
 
+
+#########
+
+##### Factorització d'aquelles variables numeriques
+
+
+summary(df[,vars_con])
+
+###### Farem el f.benefici (agrupem capital gain i capital loss)
+
+# Neutre
+# Positiu
+# Negatiu
+
+df$f.benefici<-1 #Neutre
+ll<-which((df$capital.gain - df$capital.loss) > 0)
+df$f.benefici[ll]<-2 #positiu
+ll<-which((df$capital.gain-df$capital.loss) < 0)
+df$f.benefici[ll]<-3
+
+
+df$f.benefici<-factor(df$f.benefici,levels=1:3,labels=paste0("f.benefici-",c("Neutre","Positiu","Negatiu")))
+
+
+
 ##############
 
 
@@ -199,142 +230,142 @@ tapply(df$hr.per.week,df$f.education,mean)
 
 ## create variable  missing +  out + errors.
 
+summary(df[,vars_con])
+
+
+dfaux<-df
+### AGE
+
+
+missingData<-which(is.na(dfaux$age)); length(missingData) #no missing data
+
+sel<-which(df$age <= 0); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"age"]<-NA
+}
+
+
+outers <- calcQ(dfaux$age)
+
+outlier<-which(dfaux$age > outers$souts);length(outlier)
+dfaux[outlier ,"age"]<-NA
+
+outlier<-which(dfaux$age < outers$souti);length(outlier)
+dfaux[outlier ,"age"]<-NA
+
+par(mfrow=c(1,2))
+boxplot(dfaux$age)
+boxplot(df$age)
+
+
+ll<-which(is.na(dfaux$age)); ll
+# No hi ha NA, sembla ser que a la gent no li importa possar la seva edat.
+
+
+### fnlwgt
+
+missingData<-which(is.na(dfaux$fnlwgt)); length(missingData) #no missing data
+
+
+sel<-which(dfaux$fnlwgt <= 0); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"fnlwgt"]<-NA
+}
+
+outers <- calcQ(dfaux$fnlwgt)
+
+outlier<-which(dfaux$fnlwgt > outers$souts);length(outlier)
+dfaux[outlier ,"fnlwgt"]<-NA
+
+outlier<-which(dfaux$fnlwgt < outers$souti);length(outlier)
+dfaux[outlier ,"fnlwgt"]<-NA
+
+boxplot(dfaux$fnlwgt)
+
+boxplot(df$fnlwgt)
 
 
 
+ll<-which(is.na(dfaux$fnlwgt)); ll
+dfaux<-df[-ll,]
+
+### education.num
+# Aquesta variable esta reflectida en education, que al hora hem reagrupat a f.education
 
 
 
-levels(df$sex)<-paste0("Sex-",levels(df$sex))
-summary(df$sex)
-
-# Univariant EDA 
-100*table(df$sex)/nrow(df)
-prop.table(table(df$sex))
-
-# Graphic tools
-barplot(table(df$sex),main="Gender observations",col=rainbow(2))
-
-## Variables numeriques detecció de outliers.
-
-summary(df$age)
-
-# Try 4 categories first
-quantile(df$age)
-
-cut(df$age,quantile(df$age))
-df$f.age<-factor(cut(df$age,quantile(df$age),include.lowest = T))
-summary(df$f.age)
-
-# Reasonable according to target?
-tapply(df$age,df$f.age,median) # OK
-
-# Alternative breaks defined at 30,40,50
-df$f.age<-factor(cut(df$age,c(17,29,39,49,90),include.lowest = T))
-summary(df$f.age)
-levels(df$f.age)<-paste0("f.age-",levels(df$f.age))
+### hr.per.week
 
 
-# Numeric indicators - statistics
-summary(df$age)
-quantile(df$age,seq(0,1,by=0.1)) # Decils of df$age
-# Desviació tipus
-sd(df$age)
-# Variance 
-var(df$age)
+summary(dfaux$hr.per.week)
 
-# Coefficient of variation
-sd(df$age)/mean(df$age)
 
-# Graphical tools
-hist(df$age,main="Age histogram",col=rainbow(12))
+ll<-which(is.na(dfaux$hr.per.week));ll
 
-mm<-mean(df$age);dd<-sd(df$age);mm;dd
-hist(df$age,freq=F,30,main="Age histogram",col=rainbow(12))
-curve(dnorm(x,mean=mm,sd=dd),col="cyan",lwd=3,add=T)
+sel<-which(dfaux$hr.per.week <= 0); length(sel) # errors
+dfaux[sel,"hr.per.week"]<-NA
 
-# Outlier detection
-boxplot(df$age,main="Boxplot age")
-summary(df$age)
-outsev<-48+3*(48-27)
-outsua<-48+1.5*(48-27);outsev;outsua
-abline(h=outsua,col="red",lwd=2,lty=2)
 
-miss<-countNA(df)
-attributes(miss)
-miss$mis_col  # Number of missing values for each variable
-summary(df)
-miss$mis_ind # Number of missing values in variables for each observation
-summary(miss$mis_ind)
-quantile(miss$mis_ind,seq(0,1,0.1))
+outers <- calcQ(dfaux$hr.per.week)
 
-iout<-rep(0,nrow(df))
-jout<-rep(0,length(vars_con))
+outlier<-which(dfaux$hr.per.week > outers$souts);length(outlier) #no outliers superiors critics
+dfaux[outlier,"hr.per.week"]<-NA
 
-ierr<-rep(0,nrow(df))
-jerr<-rep(0,ncol(df))
+outlier<- which(dfaux$hr.per.week < outers$souti);length(outlier) # no outliers inferiors critics.
+dfaux[outlier,"hr.per.week"]<-NA
 
-summ<-summary(df$hr.per.week)
-Boxplot(df$hr.per.week,main="Boxplot hr.per.week",col="orange")
-barplot(table(df$hr.per.week))
+boxplot(dfaux$hr.per.week)
+boxplot(df$hr.per.week)
 
-iqr<-summ[5]-summ[2];iqr
-souts<-summ[5]+3*iqr  # upper threshold
-souti<-summ[2]-3*iqr# lower threshold
-souti;souts
+ll<-which(is.na(dfaux$hr.per.week)); ll
+dfaux<-df[-ll,]
 
-ll<-which((df$hr.per.week<souti)|(df$hr.per.week>souts));length(ll)
+#################
 
-ll<-which((df$hr.per.week<5)|(df$hr.per.week>80));length(ll)
+mis1 <- countNA(df)
+attributes(mis1)
+df$mis_ind <- mis1$mis_ind
+mis1$mis_col
 
-### Special treatment: target - Errors or Severe outliers - Remove
+summary(df[,vars_con])
+outlierVal <- NULL
+for (j in 1:6) {
+  outlierVal[j]<-length(boxplot.stats(df[,vars_con[j]])$out)
+}
 
-dff<-df[-ll,]
+##############
 
-### End Special treatment: target - Errors or Severe outliers - Remove
 
-# Update iout,jout,ierr,jerr
-jerr[13]<-jerr[13]+length(ll)
-ierr[ll]<-ierr[ll]+1
-
-calcQ(df$hr.per.week)
-
-Boxplot(dff$hr.per.week,main="Boxplot hr.per.week",col="orange")
-abline(h=calcQ(dff$hr.per.week)$souti,lwd=2,col="red",lty=2)
-abline(h=calcQ(dff$hr.per.week)$souts,lwd=2,col="red",lty=2)
-
+##  Profiling
 
 library(missMDA)
-
+dff<-df
 summary(dff[,vars_con])  # Problem with capital_gain
 ll<-which(dff$capital.gain==99999)
 dff$capital.gain[ll]<-NA
 res_num<-imputePCA(dff[,vars_con])
 summary(res_num$completeObs)
 
+
 par(mfrow=c(1,2))
 boxplot(dff$capital.gain)
 boxplot(res_num$completeObs[,"capital.gain"])
 par(mfrow=c(1,1))
 
-
-
-
-
-##############
-
-
-## Imputation
-
-# Eliminar els NA's.
-
-
-#############
-
-
-##  Profiling
+res_num$completeObs
 
 #numeric target
 
-#Factor(y)
 
+names(dfaux)
+vars<-names(dfaux)[c(13,1,3,7:10,14:19)]
+
+
+condes(dfaux[,vars],1,prob=0.01)
+
+
+#Factor(y.bin)
+names(dfaux)
+vars<-names(dfaux)[c(15,1,3,7:10,13:14,16:19)]
+
+catdes(dfaux[,vars],1,prob=0.01)
