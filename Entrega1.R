@@ -89,6 +89,14 @@ summary(df[,vars_con]) # Example of descriptive for numeric variables
 summary(df[,vars_dis])
 
 
+#### Contar els missings i errors
+
+iout<-rep(0,nrow(df))
+jout<-rep(0,length(vars_con))
+
+ierr<-rep(0,nrow(df))
+jerr<-rep(0,ncol(df))
+
 ## Reagrupament de variables  descriptives
 
 
@@ -135,8 +143,6 @@ levels(df$marital)
 barplot(table(df$marital))
 table(df$marital)
 
-# decició conceptual:-> agrupem els cassats, no cassats(Divorciats, separats),
-# altres ( viudes, i may cassats(assumint que normalment es gent jove els que mai son casats, y que viudus gent gran))
 
 
 tapply(df$hr.per.week,df$marital,mean)
@@ -170,7 +176,6 @@ levels(df$education)
 barplot(table(df$education))
 table(df$education)
 
-# decició conceptual:-> agrupem el que no es United-States.
 
 tapply(df$hr.per.week,df$education,mean)
 
@@ -217,7 +222,9 @@ df$f.benefici[ll]<-3
 
 df$f.benefici<-factor(df$f.benefici,levels=1:3,labels=paste0("f.benefici-",c("Neutre","Positiu","Negatiu")))
 
+summary(df$f.benefici)
 
+barplot(table(df$f.benefici))
 
 ##############
 
