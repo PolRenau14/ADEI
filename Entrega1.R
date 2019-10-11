@@ -27,7 +27,7 @@ save(list="df",file="mostra.RData")
 
 options(contrasts=c("contr.treatment","contr.treatment"))
 
-requiredPackages <- c("effects","FactoMineR","car", "factoextra","ggplot2","dplyr","ggmap","ggthemes","knitr")
+requiredPackages <- c("effects","FactoMineR","car", "factoextra","ggplot2","dplyr","ggmap","ggthemes","knitr","missMDA")
 missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
 if(length(missingPackages)) install.packages(missingPackages)
 
@@ -276,15 +276,14 @@ dfaux[outlier ,"age"]<-NA
 # 0 outliers severs, es adir que per la variable age no tenim ni errors ni miss
 
 outlier<-which(dfaux$age > outers$mouts);length(outlier)
-# tenim 18 outliers superiors
-iout[outlier]<- iout[outlier] + 1
-jout[1]<- jout[1] + length(outlier)
+# tenim 18 outliers superiors, segons la definició de outlier, no obstant considerem que en la diversitat de les dades es normal que hi hagi poca gent d'una edat avançada. Per tant no els considerarem com a outliers.
+
 outlier<-which(dfaux$age < outers$mouti);length(outlier)
 #tenim 0 outliers inferiors.
 
 par(mfrow=c(1,1))
 boxplot(df$age)
-# nomes marquem la linea utlier vertical perque es la que te outliers
+# A continuació veiem per on tallarien els outliers la mostra d'entrada.
 abline(h= outers$mouts,col="red",lty=2)
 
 
@@ -318,25 +317,8 @@ if(length(sel)>0){
 }
 #no tenim errors
 
-outers <- calcQ(dfaux$fnlwgt)
-
-outlier<-which(dfaux$fnlwgt > outers$souts);length(outlier)
-ierr[outlier] <- ierr[outlier] +1
-jerr[3]<- jerr[3]+length(outlier)
-
-dfaux[outlier ,"fnlwgt"]<-NA
-
-outlier<-which(dfaux$fnlwgt < outers$souti);length(outlier)
-dfaux[outlier ,"fnlwgt"]<-NA
-#no tenim outliers inferiors severs
-
-outlier<-which(dfaux$fnlwgt > outers$mouts); length(outlier)
-iout[outlier]<- iout[outlier] + 1
-jout[3]<-jout[3] + length(outlier)
-#tenim outliers suaus superiors 119
-
-outlier<-which(dfaux$fnlwgt < outers$mouti); length(outlier)
-#no teni outliers suaus inferiors.
+#amb aquesta variable no te sentit calcular els outliers perque ens es useless.
+# el significat d'aquesta es el pes que te en relació a la mostra, no obstant no treballem amb pesos a la nostre pràctica
 
 par(mfrow=c(1,2))
 boxplot(dfaux$fnlwgt)
@@ -369,7 +351,16 @@ if(length(sel)>0){
 ### education.num
 
 df %>% slice (1:20) %>% select(education,education.num)
-# Com veiem en aquesta taula reduida, education es una discretització de la variable education.num. Per tant podem eludir la variable education.num
+#com veiem aquesta variable sembla ser que es una discretització de la variable education, o que estan bastant lligades
+summary(dfaux$education.num)
+
+misingData<-which(is.na(dfaux$education.num));length(missingData)
+# no hi ha errors
+sel<- which(dfaux$education.num < 1 | dfaux$education.num > 99);length(sel)
+#no hi ha errors
+
+#com hem vist en el summary no hi ha valors que siguin extrems per tant no tenim outliers.
+
 
 
 ## marital status
@@ -446,70 +437,65 @@ if(length(sel)>0){
 
 ### capital.gain
 
-#la majoria son 0, possem els 0 com a missing data?
+#
+summary(dfaux$capital.gain)
 
 #Calcul missing data
 missingData<-which(is.na(dfaux$capital.gain)); length(missingData) #no missing data
 #no tenim NA
 
 #Calcul errors (que assignem com NA per a la inputation)
-sel<-which(df$capital.gain < 0); length(sel) # errors
-if(length(sel)>0){
-  dfaux[sel,"capital.gain"]<-NA
-}
-sel<-which(df$capital.gain == 99999); length(sel)
+sel<-which(dfaux$capital.gain < 0 | dfaux$capital.gain == 99999); length(sel) # errors
 ierr[sel]<-ierr[sel] +1
 jerr[11]<- jerr[11]+length(sel)
+
 if(length(sel)>0){
   dfaux[sel,"capital.gain"]<-NA
 }
-#Calcul several outliers (i assignar na) ho hem de calcular abans dels errors a NA o despres?????
-outers <- calcQ(dfaux$capital.gain)
 
-outlier<-which(dfaux$capital.gain > outers$souts);length(outlier)
+aux<- sort(dfaux[dfaux$capital.gain > 0,"capital.gain"],decreasing=TRUE); aux[1:30]
+
+#decidim per el criteri propi establir que tot capital gain superior a 20000 serà considerat outlier.
+#no considerem outlier inferior, perque les dades que siguin negatives(si hi ha), hauran estat tractades com a errors
+
+outlimit <- 20000
+
+outlier<-which(dfaux$capital.gain > outlimit);length(outlier)
 ierr[outlier] <- ierr[outlier]+1
 jerr[11]<- jerr[11] + length(outlier)
 dfaux[outlier ,"capital.gain"]<-NA
 
-outlier<-which(dfaux$age < outers$souti);length(outlier)
-#no hi han outliers severs inferiors
-dfaux[outlier ,"capital.gain"]<-NA
 
-par(mfrow=c(1,2))
-boxplot(df$capital.gain)
-abline(h=outers$souts,col="red",lty=2)
-abline(h=outers$mouts,col="orange",lty=2)
-boxplot(dfaux$capital.gain)
+par(mfrow=c(1,3))
+boxplot(df$capital.gain,main="Original Data")
+boxplot(dfaux$capital.gain, main= "Eliminant els outliers i errors")
+boxplot(dfaux[dfaux$capital.gain>0,"capital.gain"], main= "Eliminant outliers, errors i 0")
+#en el primer boxplot no veiem res al respecte, ja que la majoria de dades són 0, per tant mostrem que si treiem les que són 0 del segon boxplot, on hem posat els outliers a NA, ens queda un boxplot bastant bonic.
 
-ll<-which(is.na(dfaux$capital.gain)); ll
-dfaux<-df[-ll,]
 
 ### capital.loss
+
+
+summary(dfaux$capital.loss)
 
 #Calcul missing data
 missingData<-which(is.na(dfaux$capital.loss)); length(missingData) #no missing data
 
 #Calcul errors (que assignem com NA per a la inputation)
-sel<-which(df$capital.loss < 0); length(sel) # errors
+sel<-which(df$capital.loss < 0 | df$capital.los == 99999); length(sel) # errors
 if(length(sel)>0){
   dfaux[sel,"capital.loss"]<-NA
 }
+#no hi han errors
 
-#Calcul several outliers (i assignar na)
-outers <- calcQ(dfaux$capital.loss)
+aux<- sort(dfaux[dfaux$capital.loss > 0,"capital.loss"],decreasing=TRUE); aux
 
-outlier<-which(dfaux$capital.loss > outers$souts);length(outlier)
-dfaux[outlier ,"capital.loss"]<-NA
-
-outlier<-which(dfaux$age < outers$souti);length(outlier)
-dfaux[outlier ,"capital.loss"]<-NA
+#totes les dades són més o menys similars, no determinem un outlier
 
 par(mfrow=c(1,2))
-boxplot(dfaux$capital.loss)
-boxplot(df$capital.loss)
+boxplot(df$capital.loss,main="dades originals")
+boxplot(dfaux[dfaux$capital.loss>0,"capital.loss"],main="no 0")
 
-ll<-which(is.na(dfaux$capital.loss)); ll
-dfaux<-df[-ll,]
 
 
 ### hr.per.week
@@ -519,38 +505,31 @@ summary(dfaux$hr.per.week)
 
 ll<-which(is.na(dfaux$hr.per.week));ll
 #no tenim na
-sel<-which(dfaux$hr.per.week <= 0); length(sel) # errors
-#no tenim errors
+sel<-which(dfaux$hr.per.week <= 0 | dfaux$hr.per.week ==99); length(sel) # errors
+ierr[sel]<- ierr[sel]+1
+jerr[13]<- jerr[13]+length(sel)
 dfaux[sel,"hr.per.week"]<-NA
 
 
-outers <- calcQ(dfaux$hr.per.week)
 
-outlier<-which(dfaux$hr.per.week > outers$souts);length(outlier) #outliers superiors critics
+#tenint en compte que la jornada labroal màxima es de 40 hores etmanals, establirem el limit a un 150% d'aquesta, es a dir 60 hores
+# establim un limit inferior també, ja que considerarem que treballar menyys de 10 hores esra outlier
+outlimit<- 60
+outlier<-which(dfaux$hr.per.week > outlimit );length(outlier) #outliers superiors critics
 ierr[outlier]<- ierr[outlier] +1
 jerr[13]<-jerr[13]+length(outlier)
 dfaux[outlier,"hr.per.week"]<-NA
 
-outlier<- which(dfaux$hr.per.week < outers$souti);length(outlier) # outliers inferiors critics.
-ierr[outlier]<- ierr[outlier]+1
-jerr[13]<- jerr[13] + length(outlier)
+outlimit<- 10
+outlier<-which(dfaux$hr.per.week < outlimit );length(outlier) #outliers superiors critics
+ierr[outlier]<- ierr[outlier] +1
+jerr[13]<-jerr[13]+length(outlier)
 dfaux[outlier,"hr.per.week"]<-NA
 
-
-outlier<- which(dfaux$hr.per.week > outers$mouts);length(outlier)
-iout[outlier]<- iout[outlier]+1
-jout[13]<- jout[13]+length(outlier)
-
-outlier<- which(dfaux$hr.per.week < outers$mouti);length(outlier)
-iout[outlier]<- iout[outlier]+1
-jout[13]<- jout[13]+length(outlier)
-
-
+par(mfrow=c(1,2))
 boxplot(df$hr.per.week)
-abline(h= outers$souti,col="red")
-abline(h= outers$souts,col="red")
-abline(h= outers$mouti,col="orange",lty=2)
-abline(h= outers$mouts,col="orange",lty=2)
+abline(h= outers$souts,col="red",lty=2)
+abline(h= 10,col="red",lty=2)
 
 boxplot(dfaux$hr.per.week)
 
@@ -595,97 +574,59 @@ missingData<-which(is.na(dfaux$y.bin)); length(missingData)
 #no tenim missing Data
 
 #####################################
-
-#Dirira q no cal trobar error de les variables que acabem de factoritzar no tindran err, ni miss.
-### f.type
-
-missingData<-which(is.na(dfaux$f.type)); length(missingData)
-
-sel<-which(df$f.type != 'f.typ-Civil' & df$f.type != 'f.typ-Private' &
-             df$f.type != 'f.typ-SelfEm' & df$f.type != 'f.typ-Other'); length(sel) # errors
-
-if(length(sel)>0){
-  dfaux[sel,"f.type"]<-NA
-}
-
-### f.marital
-
-missingData<-which(is.na(dfaux$f.marital)); length(missingData)
-
-sel<-which(df$f.marital != 'f.marital-Married' & df$f.marital != 'f.marital-No- Married' &
-             df$f.marital != 'f.marital-Never-married' & df$f.marital != 'f.marital-Widowed'); length(sel) # errors
-
-if(length(sel)>0){
-  dfaux[sel,"f.marital"]<-NA
-}
+ #podriem fer el mateix per les variables reagrupades, i discretitzades, no osbtant no té sentit ja que hem tractat tots els casos.
 
 
+####
+#afegim la variable que es la suma dels errors missings i outliers al df
+dfaux$i.rank<-  ierr + imiss + iout
 
-### f.education
+#que entenem per calcular la mitjana de out/err/miss, sumar tots per columna i dividir entre 3(miss/err/out)?????
+aux<-(countNA(dfaux)$mis_col)/3
 
-missingData<-which(is.na(dfaux$f.education)); length(missingData)
+install.packages("corrplot")
 
-sel<-which(df$f.education != 'f.education-Non-Graduate' & df$f.education != 'f.education-Some-college' &
-             df$f.education != 'f.education-University-Or-More' & df$f.education != 'f.education-Assoc' &
-             df$f.education != 'f.education-Proof-school'); length(sel) # errors
+library(corrplot)
+t<- dfaux[,vars_con]
+t$i.rank <- dfaux[,"i.rank"]
+corMatrix<-cor(t); corMatrix
 
-if(length(sel)>0){
-  dfaux[sel,"f.education"]<-NA
-}
+corrplot(corMatrix, type = "upper", order = "hclust",
+         tl.col = "black", tl.srt = 45)
 
-
-### f.benefici
-
-missingData<-which(is.na(dfaux$f.benefici)); length(missingData)
-
-sel<-which(df$f.benefici != 'f.benefici-Neutre' & df$f.benefici != 'f.benefici-Positiu' &
-             df$f.benefici != 'f.benefici-Negatiu'); length(sel) # errors
-
-if(length(sel)>0){
-  dfaux[sel,"f.benefici"]<-NA
-}
-
-
-
-#################
-
-mis1 <- countNA(df)
-attributes(mis1)
-df$mis_ind <- mis1$mis_ind
-mis1$mis_col
-
-summary(df[,vars_con])
-outlierVal <- NULL
-for (j in 1:6) {
-  outlierVal[j]<-length(boxplot.stats(df[,vars_con[j]])$out)
-}
-
+#veiem que la variable de no te gaire correlació amb cap de les altres variables numeriques.
 ##############
+
+
+## Imputing variables
+
+install.packages("missMDA")
+library(missMDA)
+
+# numericas
+res.num<-imputePCA(dfaux[,vars_con])
+summary(res.num$completeObs)
+summary(dfaux[,vars_con])
+
+# descriptivas
+res.des<-imputeMCA(dfaux[,vars_dis])
+summary(res.des$completeObs)
+summary(dfaux[,vars_dis])
+
+#### substituim aquelles variables imputades a les dades.
+dfaux[,vars_con]<- res.num$completeObs
+dfaux[,vars_dis]<- res.des$completeObs
+
 
 
 ##  Profiling
 
-library(missMDA)
-dff<-df
-summary(dff[,vars_con])  # Problem with capital_gain
-ll<-which(dff$capital.gain==99999)
-dff$capital.gain[ll]<-NA
-res_num<-imputePCA(dff[,vars_con])
-summary(res_num$completeObs)
-
-
-par(mfrow=c(1,2))
-boxplot(dff$capital.gain)
-boxplot(res_num$completeObs[,"capital.gain"])
-par(mfrow=c(1,1))
-
-res_num$completeObs
 
 #numeric target
 
 
 names(dfaux)
-vars<-names(dfaux)[c(13,1,3,7:10,14:19)]
+vars<-names(dfaux)[c(13,1,3,5:12,14:19)]
 
 
 condes(dfaux[,vars],1,prob=0.01)
