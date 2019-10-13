@@ -117,7 +117,6 @@ df$f.type[ll]<-4
 
 # Define f.type as a factor and use 'nice' level names
 
-paste0("f.typ-",c("Civil","Private","SelfEm","Other"))
 df$f.type<-factor(df$f.type,levels=1:4,labels=paste0("f.typ-",c("Civil","Private","SelfEm","Other")))
 
 summary(df$f.type)
@@ -221,6 +220,26 @@ summary(df$f.benefici)
 barplot(table(df$f.benefici))
 
 ##############
+#AGE
+summary(df$age)
+
+# Try 4 categories first
+quantile(df$age)
+
+df$f.age<-factor(cut(df$age,quantile(df$age),include.lowest = T))
+summary(df$f.age)
+
+# Reasonable according to target?
+tapply(df$age,df$f.age,median) # OK
+
+# Alternative breaks defined at 30,40,50
+df$f.age<-factor(cut(df$age,c(17,29,39,49,90),include.lowest = T))
+summary(df$f.age)
+levels(df$f.age)<-paste0("f.age-",levels(df$f.age))
+
+barplot(table(df$age),main="Original",col=rainbow(12))
+
+barplot(table(df$f.age),main="Discret",col=rainbow(12))
 
 
 ## Data Quality
@@ -587,8 +606,9 @@ aux<-(countNA(dfaux)$mis_col)/3
 install.packages("corrplot")
 
 library(corrplot)
-t<- dfaux[,vars_con]
-t$i.rank <- dfaux[,"i.rank"]
+t<- df[,vars_con]
+df$i.rank <- dfaux$i.rank
+t$i.rank <- df[,"i.rank"]
 corMatrix<-cor(t); corMatrix
 
 corrplot(corMatrix, type = "upper", order = "hclust",

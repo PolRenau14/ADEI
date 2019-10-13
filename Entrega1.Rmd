@@ -17,15 +17,15 @@ output:
 geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
 fontsize: 12pt
 subtitle: 'Loading data and Sample selection'
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
 
 
-# Load data
+# Carregar les dades
 
-Data is adult.data file located in the current active directory
+Les dades es diuen adult.data i es troben en el directori actual.
 
 
 ```{r}
@@ -34,16 +34,16 @@ df<-read.table("adult.data",header=F, sep=",",fill=FALSE,              strip.whi
 dim(df)
 names(df)
 
-names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation", 
-             "relationship", "race","sex", "capital.gain", "capital.loss", 
+names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation",
+             "relationship", "race","sex", "capital.gain", "capital.loss",
              "hr.per.week", "country", "y.bin")
 summary(df)
 
 ```
 
-## Sample selection
+## Selecció de la mostra
 
-You have to initialize generator seed and select a personal sample of 5000 observations
+Inicialitzem un generador aleatori, amb una llavor que es igual a la data de neixament d'un dels integrants del grup, i agafem 5000 observacions de les dades totals
 
 ```{r}
 set.seed(14121997)
@@ -57,18 +57,20 @@ df<-df[sam,]
 
 ```
 
-### Save sample binary file
+### Guardar la mostra
+
+Guardarem la mostra com a mostra.RData, en el directori actua, aquest pas el podriem evitar, no obstant el fem perquè creiem que es important saber guardar les dades.
 
 ```{r}
 save(list="df",file="mostra.RData")
 ```
 
 
-# Income Census Dataset
+# Fitxa de dades del cens
 
-## Description 
+## Descripció
 
-*Input variables:* 
+*variables d'entrada:*
 
   1.  age: continuous.
   2.  workclass: Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.
@@ -87,7 +89,7 @@ save(list="df",file="mostra.RData")
   15.  y.bin: Making more than $50K per year. Binary target.
 
 
-## Load Packages
+## Carrega de paquets
 
 Carregarem tots els paquets necessaris per utilitzar al llarg de la pràctica.
 
@@ -102,7 +104,7 @@ lapply(requiredPackages, require, character.only = TRUE)
 
 ```
 
-## Load Sample
+## Carregar mostra
 
 Carreguem el model previament creat.
 
@@ -118,14 +120,14 @@ summary(df)
 ```
 
 
-#Some useful functions
- Definim totes les funcions que ens podran ser utils al llarg de la pràctica.
+# Algunes funcions útils
+ Definim totes les funcions que ens podràn ser utils al llarg de la pràctica.
 
 ```{r}
 calcQ <- function(x) {
   s.x <- summary(x)
   iqr<-s.x[5]-s.x[2]
-  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3],
        q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) }
 
 countNA <- function(x) {
@@ -139,9 +141,9 @@ countNA <- function(x) {
 ```
 
 
-# Data Preparation
+# Preparació de les dades
 
-Preparació de les dades, separem entre aquelles variables que tenen un valor numeric i aquelles que són descriptives
+Preparació de les dades, separem entre aquelles variables que tenen un valor numéric i aquelles que són descriptives
 
 ```{r}
 names(df)
@@ -156,58 +158,144 @@ summary(df[,vars_dis])
 ```
 
 
-# Factor preparation
+## Preparació dels factors
 
-## type.employer
+En aquest apartat realitzarem la reagrupació d'aquells factors en classes més generals, això només ho farem per aquelles variables que hem cregut necesaries, de reagrupar en altres clases.
+
+### type.employer
+
+
+
+*Desició conceptual:*
+
+  1. Civil => Federal, local and state gov
+  2. Private
+  3. SelfEm => Treballadors autonoms amb ingresos.
+  4. Other => Self-emp-not-inc, Never-worked, Without-pay
 
 ```{r}
+par(mfrow=c(1,2))
+
 levels(df$type.employer)
 
-# Graphic tool for Univ EDA and factors
-barplot(table(df$type.employer))
+
+barplot(table(df$type.employer),main="Original",col=rainbow(12))
 table(df$type.employer)
 
 # Conceptual decission : federal, local and state gov are grouped together - Private alone , Self-emp and the rest together
 
-# Use target means
+
 
 tapply(df$hr.per.week,df$type.employer,mean)
 df$f.type<-1
 ll<-which(df$type.employer == "Private");length(ll)
 df$f.type[ll]<-2
-df[ll,"f.type"]<-2 # f.type already available
 ll<-which(df$type.employer == "Self-emp-inc");length(ll)
 df$f.type[ll]<-3
 ll<-which(df$type.employer %in% c("Self-emp-not-inc","Never-worked","Without-pay"));length(ll)
 df$f.type[ll]<-4
 
-# Define f.type as a factor and use 'nice' level names
 
-paste0("f.typ-",c("Civil","Private","SelfEm","Other"))
 df$f.type<-factor(df$f.type,levels=1:4,labels=paste0("f.typ-",c("Civil","Private","SelfEm","Other")))
 
 summary(df$f.type)
+summary(df$type.employer)
 
+barplot(table(df$f.type),main="Reagrupat",col=rainbow(12))
 
 ```
 
-## Sex - Change label names 
+### marital
+
+
+*Desició conceptual:*
+
+  1. Married => tots aquells que esan casats
+  2. No-married=> Divorced i Separated
+  3. Never-Married
+  4. Widowed
 
 ```{r}
-levels(df$sex)<-paste0("Sex-",levels(df$sex))
-summary(df$sex)
+levels(df$marital)
 
-# Univariant EDA 
-100*table(df$sex)/nrow(df)
-prop.table(table(df$sex))
+barplot(table(df$marital),main="Original",col=rainbow(12))
+table(df$marital)
 
-# Graphic tools
-barplot(table(df$sex),main="Gender observations",col="orange")
-barplot(table(df$sex),main="Gender observations",col=rainbow(2))
+tapply(df$hr.per.week,df$marital,mean)
+
+df$f.marital<-1
+ll<-which(df$marital %in% c ("Divorced","Separated")); length(ll)
+df$f.marital[ll]<-2
+ll<-which(df$marital == "Never-married"); length(ll)
+df$f.marital[ll]<-3
+ll<-which(df$marital == "Widowed"); length(ll)
+df$f.marital[ll]<-4
+
+df$f.marital<-factor(df$f.marital,levels=1:4,labels=paste0("f.marital-",c("Married","No- Married","Never-married","Widowed")))
+
+summary(df$f.marital)
+
+barplot(table(df$f.marital),main="Reagrupat",col=rainbow(12))
+
 ```
 
-## Numeric variables -  Discretization
+### education
+
+
+*Desició conceptual:*
+
+  1. Non-Graduatee => tots aquells que  no han superat res més que els estudis obligatoris, o bé que no ho han fet
+  2. Some-college
+  3. University-Or-More => Doctorate, Bachelors, HS-grad, Masters
+  4. Assoc => Assoc-acdm, Assoc-voc
+  5. Prof-school
+
+```{r}
+levels(df$education)
+
+barplot(table(df$education))
+table(df$education)
+
+
+tapply(df$hr.per.week,df$education,mean)
+
+df$f.education<-1
+ll<-which(df$education == "Some-college")
+df$f.education[ll]<-2
+ll<-which(df$education %in% c("Doctorate","Bachelors","HS-grad","Masters"))
+df$f.education[ll]<-3
+ll<-which(df$education %in% c("Assoc-acdm","Assoc-voc"))
+df$f.education[ll]<-4
+ll<-which(df$education == "Prof-school")
+df$f.education[ll]<-5
+
+# Define f.type as a factor and use 'nice' level names
+
+df$f.education<-factor(df$f.education,levels=1:5,labels=paste0("f.education-",c("Non-Graduate","Some-college","University-Or-More","Assoc","Proof-school")))
+
+summary(df$f.education)
+
+barplot(table(df$f.education))
+```
+
+
+
+
+
+## Discretització de variables numèriques
+
+En aquest apartat reagruparem totes aquelles variables númeriques en categories més generals, segons el nostre criteri pròpi.
+
 ### Age
+Agruparem el terme edat en els valors de tall que ens donen els quartils de la mostra.
+
+*Desició conceptual:*
+
+  1. [17-29]
+  2. [30,39]
+  3. [40,49]
+  4. [50,90]
+
 
 ```{r}
 summary(df$age)
@@ -215,7 +303,6 @@ summary(df$age)
 # Try 4 categories first
 quantile(df$age)
 
-cut(df$age,quantile(df$age))
 df$f.age<-factor(cut(df$age,quantile(df$age),include.lowest = T))
 summary(df$f.age)
 
@@ -227,54 +314,45 @@ df$f.age<-factor(cut(df$age,c(17,29,39,49,90),include.lowest = T))
 summary(df$f.age)
 levels(df$f.age)<-paste0("f.age-",levels(df$f.age))
 
+barplot(table(df$age),main="Original",col=rainbow(12))
+
+barplot(table(df$f.age),main="Discret",col=rainbow(12))
+
 ```
 
-## Univariant EDA - Numeric variables
+### capital.gain & capital.loss
 
-### age
-```{r}
-# Numeric indicators - statistics
-summary(df$age)
-quantile(df$age,seq(0,1,by=0.1)) # Decils of df$age
-# Desviació tipus
-sd(df$age)
-# Variance 
-var(df$age)
+Hem cregut que aquestes variables tenen una relació gran que sería el benefici, es a dir capital.gain - capital.loss.
 
-# Coefficient of variation
-sd(df$age)/mean(df$age)
+*Desició conceptual:*
 
-# Graphical tools
-hist(df$age)
-hist(df$age,main="Age histogram",col="orange")
-hist(df$age,main="Age histogram",col=rainbow(12))
+  1. Neutre
+  2. Positiu
+  3. Negatiu
 
-mm<-mean(df$age);dd<-sd(df$age);mm;dd
-hist(df$age,freq=F,30,main="Age histogram",col=rainbow(12))
-curve(dnorm(x,mean=mm,sd=dd),col="cyan",lwd=3,add=T)
-
-# Outlier detection
-boxplot(df$age,main="Boxplot age")
-summary(df$age)
-outsev<-48+3*(48-27)
-outsua<-48+1.5*(48-27);outsev;outsua
-abline(h=outsua,col="red",lwd=2,lty=2)
-```
-
-
-# Missing data: initial situation
 
 ```{r}
-miss<-countNA(df)
-attributes(miss)
-miss$mis_col  # Number of missing values for each variable
-summary(df)
-miss$mis_ind # Number of missing values in variables for each observation
-summary(miss$mis_ind)
-quantile(miss$mis_ind,seq(0,1,0.1))
+df$f.benefici<-1 #Neutre
+ll<-which((df$capital.gain - df$capital.loss) > 0)
+df$f.benefici[ll]<-2 #positiu
+ll<-which((df$capital.gain-df$capital.loss) < 0)
+df$f.benefici[ll]<-3
+
+
+df$f.benefici<-factor(df$f.benefici,levels=1:3,labels=paste0("f.benefici-",c("Neutre","Positiu","Negatiu")))
+
+summary(df$f.benefici)
+
+par(mfrow=c(1,1))
+barplot(table(df$f.benefici))
+
+par(mfrow=c(1,2))
 ```
 
-# Outliers and Errors: initial situation
+
+# Qualitat de les dades
+
+En aquest apartat, per cada variable contarem el nombre d'errors, missings i outliers. Per definir els outliers i errors, en cada categoria s'establiran valors limits en els que considerarem que a apartir d'allà ja són valors que poden comprometrer la qualitat de les dades. I per cada individu calcularem el nombre total d'errors + missings + outliers i s'afegira com una variable extra del dataframe.
 
 ```{r}
 iout<-rep(0,nrow(df))
@@ -282,47 +360,76 @@ jout<-rep(0,length(vars_con))
 
 ierr<-rep(0,nrow(df))
 jerr<-rep(0,ncol(df))
+
+imiss<-rep(0,nrow(df))
+jmiss<-rep(0,ncol(df))
+
+summary(df[,vars_con])
+dfaux<-df
 ```
 
-## hr.per.week (numeric target)
+Hem creat un dataframe auxiliar que serà una copia del dataframe original, per poder fer en tot moment la compartiva del que són les dades reals i les dades que anem tractant.
 
+
+## age
+Per a la variable "age", establim que tota edat que sigui 0 o bé sigui negatia serà considerada com a error.
 ```{r}
-summ<-summary(df$hr.per.week)
-boxplot(df$hr.per.week,main="Boxplot hr.per.week",col="orange")
-barplot(table(df$hr.per.week))
 
-iqr<-summ[5]-summ[2];iqr
-souts<-summ[5]+3*iqr  # upper threshold
-souti<-summ[2]-3*iqr# lower threshold
-souti;souts
+#Calcul missing data
+missingData<-which(is.na(dfaux$age)); length(missingData) #no missing data
 
-ll<-which((df$hr.per.week<souti)|(df$hr.per.week>souts));length(ll)
+#Calcul errors (que assignem com NA per a la inputation)
+sel<-which(df$age <= 0); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"age"]<-NA
+}
+# No tenim missin data ni errors d'edat negativa, comprobem els outliers severs.
 
-ll<-which((df$hr.per.week<5)|(df$hr.per.week>80));length(ll)
+#Calcul several outliers (i assignar na)
+outers <- calcQ(dfaux$age)
 
-### Special treatment: target - Errors or Severe outliers - Remove
+outlier<-which(dfaux$age > outers$souts);length(outlier)
+dfaux[outlier ,"age"]<-NA
 
-dff<-df[-ll,]
+outlier<-which(dfaux$age < outers$souti);length(outlier)
+dfaux[outlier ,"age"]<-NA
 
-### End Special treatment: target - Errors or Severe outliers - Remove
+# 0 outliers severs, es adir que per la variable age no tenim ni errors ni miss
 
-# Update iout,jout,ierr,jerr
-jerr[13]<-jerr[13]+length(ll)
-ierr[ll]<-ierr[ll]+1
+outlier<-which(dfaux$age > outers$mouts);length(outlier)
+# tenim 18 outliers superiors, segons la definició de outlier, no obstant considerem que en la diversitat de les dades es normal que hi hagi poca gent d'una edat avançada. Per tant no els considerarem com a outliers.
 
-calcQ(df$hr.per.week)
+outlier<-which(dfaux$age < outers$mouti);length(outlier)
+#tenim 0 outliers inferiors.
 
-boxplot(dff$hr.per.week,main="Boxplot hr.per.week",col="orange")
-abline(h=calcQ(dff$hr.per.week)$souti,lwd=2,col="red",lty=2)
-abline(h=calcQ(dff$hr.per.week)$souts,lwd=2,col="red",lty=2)
+par(mfrow=c(1,1))
+boxplot(df$age)
+# A continuació veiem per on tallarien els outliers la mostra d'entrada.
+abline(h= outers$mouts,col="red",lty=2)
 
 ```
 
-Fer per totes les variables numèriques (outliers i errors) i factors (errors, si cal identifiqueu les categories missing).
+Per aquesta variable, hem decidit que no hi hauran outliers, ja que els outliers que ens dona la teoria de quartils, creiem que no representen la diversitat d'aquest cens. Per tant mostrem un boxplot on es veu per on hauriem de tallar segons els valors teorics, no obstant per desició pròpia decidim no fer-ho.
 
-# Imputation
+## workclass
 
-Set some reasonable value to missing data. Missing can be an original missing or an error/outlier set to missing
+Per aquesta variable, hem establert que com a errors tractarem com a errors a tots aquells valors que no formin part de les categories d'entrada definides al inici.
+```{r}
+missingData<-which(is.na(dfaux$type.employer)); length(missingData)
+imiss[missingData]<- imiss[missingData] +1
+jmiss[2] <- jmiss[2]+ length(missingData)
 
+#Tractarem com a error tot allo que no pertanyi al rang de valors que contemplem
+sel<-which(df$type.employer != 'Private' & df$type.employer != 'Self-emp-not-inc' &
+             df$type.employer != 'Self-emp-inc' & df$type.employer != 'Federal-gov' &
+             df$type.employer != 'Local-gov' & df$type.employer != 'State-gov' &
+             df$type.employer != 'Without-pay' & df$type.employer != 'Never-worked'); length(sel) # errors
 
+if(length(sel)>0){
+  dfaux[sel,"type.employer"]<-NA
+}
 
+#Tenim 0 errors
+```
+
+Com podem observar no hi han ni errors, no obstant si que tenim algun NA.
