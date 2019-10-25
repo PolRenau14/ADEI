@@ -1,0 +1,830 @@
+---
+title: "Entrega1"
+author: "Pol Renau Miguel Angel Merino"
+date: \today
+output:
+  word_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    toc: no
+    toc_depth: '4'
+  pdf_document:
+    latex_engine: pdflatex
+    number_sections: yes
+    toc_depth: 4
+    toc: yes
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 12pt
+subtitle: 'Loading data and Sample selection'
+editor_options:
+  chunk_output_type: console
+---
+
+
+
+# Carregar les dades
+
+Les dades es diuen adult.data i es troben en el directori actual.
+
+
+```{r}
+
+df<-read.table("adult.data",header=F, sep=",",fill=FALSE,              strip.white=TRUE,na.string="?")
+names(df)<-c("age", "type.employer", "fnlwgt", "education", "education.num","marital", "occupation",
+             "relationship", "race","sex", "capital.gain", "capital.loss",
+             "hr.per.week", "country", "y.bin")
+
+```
+
+## Selecció de la mostra
+
+Inicialitzem un generador aleatori, amb una llavor que es igual a la data de neixament d'un dels integrants del grup, i agafem 5000 observacions de les dades totals
+
+```{r}
+set.seed(14121997)
+sam<-sort(sample(1:nrow(df),5000))
+
+
+str(df)
+
+# Select sample
+df<-df[sam,]
+
+```
+
+### Guardar la mostra
+
+Guardarem la mostra com a mostra.RData, en el directori actua, aquest pas el podriem evitar, no obstant el fem perquè creiem que es important saber guardar les dades.
+
+```{r}
+save(list="df",file="mostra.RData")
+```
+
+
+# Fitxa de dades del cens
+
+## Descripció
+
+*variables d'entrada:*
+
+  1.  age: continuous.
+  2.  workclass: Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.
+  3.  fnlwgt: continuous.
+  4.  education: Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.
+  5.  education-num: continuous.
+  6.  marital.status: Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+  7.  occupation: Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.
+  7.  relationship: Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.
+  8.  race: White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.
+  9.  sex: Female, Male.
+  10.  capital.gain: continuous.
+  11.  capital.loss: continuous.
+  12.  hours.per.week: continuous. Numeric target.
+  13.  native.country: United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands.
+  15.  y.bin: Making more than $50K per year. Binary target.
+
+
+## Carrega de paquets
+
+Carregarem tots els paquets necessaris per utilitzar al llarg de la pràctica.
+
+```{r}
+options(contrasts=c("contr.treatment","contr.treatment"))
+
+requiredPackages <- c("effects","FactoMineR","car", "factoextra","ggplot2","dplyr","ggmap","ggthemes","knitr")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+
+lapply(requiredPackages, require, character.only = TRUE)
+
+```
+
+## Carregar mostra
+
+Carreguem el model previament creat.
+
+```{r}
+# Clear objects
+rm(list=ls())
+# Clear plots
+if(!is.null(dev.list())) dev.off()
+
+# Command or Windows-like method
+load("mostra.RData")
+summary(df)
+```
+
+
+# Algunes funcions útils
+ Definim totes les funcions que ens podràn ser utils al llarg de la pràctica.
+
+```{r}
+calcQ <- function(x) {
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3],
+       q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) }
+
+countNA <- function(x) {
+  mis_x <- NULL
+  for (j in 1:ncol(x)) {mis_x[j] <- sum(is.na(x[,j])) }
+  mis_x <- as.data.frame(mis_x)
+  rownames(mis_x) <- names(x)
+  mis_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {mis_i <- mis_i + as.numeric(is.na(x[,j])) }
+  list(mis_col=mis_x,mis_ind=mis_i) }
+```
+
+
+# Preparació de les dades
+
+Preparació de les dades, separem entre aquelles variables que tenen un valor numéric i aquelles que són descriptives.
+
+```{r}
+vars_con<-names(df)[c(1,3,5,11:13)];
+vars_dis<-names(df)[c(2,4,6:10,14:15)];
+
+summary(df[,vars_con]) # Example of descriptive for numeric variables
+
+summary(df[,vars_dis])
+
+
+```
+
+
+## Preparació dels factors
+
+En aquest apartat realitzarem la reagrupació d'aquells factors en classes més generals, això només ho farem per aquelles variables que hem cregut necesaries, de reagrupar en altres clases.
+
+### type.employer
+
+
+
+*Desició conceptual:*
+
+  1. Civil => Federal, local and state gov
+  2. Private
+  3. SelfEm => Treballadors autonoms amb ingresos.
+  4. Other => Self-emp-not-inc, Never-worked, Without-pay
+
+```{r}
+par(mfrow=c(1,2))
+
+levels(df$type.employer)
+
+
+barplot(table(df$type.employer),main="Original",col=rainbow(12))
+table(df$type.employer)
+
+tapply(df$hr.per.week,df$type.employer,mean)
+df$f.type<-1
+ll<-which(df$type.employer == "Private");length(ll)
+df$f.type[ll]<-2
+ll<-which(df$type.employer == "Self-emp-inc");length(ll)
+df$f.type[ll]<-3
+ll<-which(df$type.employer %in% c("Self-emp-not-inc","Never-worked","Without-pay"));length(ll)
+df$f.type[ll]<-4
+
+
+df$f.type<-factor(df$f.type,levels=1:4,labels=paste0("f.typ-",c("Civil","Private","SelfEm","Other")))
+
+summary(df$f.type)
+summary(df$type.employer)
+
+barplot(table(df$f.type),main="Reagrupat",col=rainbow(12))
+
+```
+
+### marital
+
+
+*Desició conceptual:*
+
+  1. Married => tots aquells que esan casats
+  2. No-married=> Divorced i Separated
+  3. Never-Married
+  4. Widowed
+
+```{r}
+levels(df$marital)
+
+barplot(table(df$marital),main="Original",col=rainbow(12))
+table(df$marital)
+
+tapply(df$hr.per.week,df$marital,mean)
+
+df$f.marital<-1
+ll<-which(df$marital %in% c ("Divorced","Separated")); length(ll)
+df$f.marital[ll]<-2
+ll<-which(df$marital == "Never-married"); length(ll)
+df$f.marital[ll]<-3
+ll<-which(df$marital == "Widowed"); length(ll)
+df$f.marital[ll]<-4
+
+df$f.marital<-factor(df$f.marital,levels=1:4,labels=paste0("f.marital-",c("Married","No- Married","Never-married","Widowed")))
+
+summary(df$f.marital)
+
+barplot(table(df$f.marital),main="Reagrupat",col=rainbow(12))
+
+```
+
+### education
+
+
+*Desició conceptual:*
+
+  1. Non-Graduatee => tots aquells que  no han superat res més que els estudis obligatoris, o bé que no ho han fet
+  2. Some-college
+  3. University-Or-More => Doctorate, Bachelors, HS-grad, Masters
+  4. Assoc => Assoc-acdm, Assoc-voc
+  5. Prof-school
+
+```{r}
+levels(df$education)
+
+barplot(table(df$education),col=rainbow(12))
+table(df$education)
+
+tapply(df$hr.per.week,df$education,mean)
+
+df$f.education<-1
+ll<-which(df$education == "Some-college")
+df$f.education[ll]<-2
+ll<-which(df$education %in% c("Doctorate","Bachelors","HS-grad","Masters"))
+df$f.education[ll]<-3
+ll<-which(df$education %in% c("Assoc-acdm","Assoc-voc"))
+df$f.education[ll]<-4
+ll<-which(df$education == "Prof-school")
+df$f.education[ll]<-5
+
+
+df$f.education<-factor(df$f.education,levels=1:5,labels=paste0("f.education-",c("Non-Graduate","Some-college","University-Or-More","Assoc","Proof-school")))
+
+summary(df$f.education)
+
+barplot(table(df$f.education),col=rainbow(12))
+```
+
+
+
+
+
+## Discretització de variables numèriques
+
+En aquest apartat reagruparem totes aquelles variables númeriques en categories més generals, segons el nostre criteri pròpi.
+
+### Age
+Agruparem el terme edat en els valors de tall que ens donen els quartils de la mostra.
+
+*Desició conceptual:*
+
+  1. [17-29]
+  2. [30,39]
+  3. [40,49]
+  4. [50,90]
+
+
+```{r}
+summary(df$age)
+
+df$f.age<-factor(cut(df$age,c(17,29,39,49,90),include.lowest = T))
+summary(df$f.age)
+levels(df$f.age)<-paste0("f.age-",levels(df$f.age))
+
+barplot(table(df$age),main="Original",col=rainbow(12))
+
+barplot(table(df$f.age),main="Discret",col=rainbow(12))
+
+```
+
+### capital.gain & capital.loss
+
+Hem cregut que aquestes variables tenen una relació gran que sería el benefici, es a dir capital.gain - capital.loss.
+
+*Desició conceptual:*
+
+  1. Neutre
+  2. Positiu
+  3. Negatiu
+
+
+```{r}
+df$f.benefici<-1 #Neutre
+ll<-which((df$capital.gain - df$capital.loss) > 0)
+df$f.benefici[ll]<-2 #positiu
+ll<-which((df$capital.gain-df$capital.loss) < 0)
+df$f.benefici[ll]<-3
+
+
+df$f.benefici<-factor(df$f.benefici,levels=1:3,labels=paste0("f.benefici-",c("Neutre","Positiu","Negatiu")))
+
+summary(df$f.benefici)
+
+par(mfrow=c(1,1))
+barplot(table(df$f.benefici),col=rainbow(12))
+
+par(mfrow=c(1,2))
+```
+
+
+# Qualitat de les dades
+
+En aquest apartat, per cada variable contarem el nombre d'errors, missings i outliers. Per definir els outliers i errors, en cada categoria s'establiran valors limits en els que considerarem que a apartir d'allà ja són valors que poden comprometrer la qualitat de les dades. I per cada individu calcularem el nombre total d'errors + missings + outliers i s'afegira com una variable extra del dataframe.
+
+No obstant, per les variables discretes només es calcula el nombre de missings i errors (considerar outliers no té sentit). Considerarem que un error en una variable discreta és tot aquell valor que pren i que no es considera com a possible valor a prendre (tal i com queda explicat a la definició de les dades).
+
+```{r}
+iout<-rep(0,nrow(df))
+jout<-rep(0,length(vars_con))
+
+ierr<-rep(0,nrow(df))
+jerr<-rep(0,ncol(df))
+
+imiss<-rep(0,nrow(df))
+jmiss<-rep(0,ncol(df))
+
+dfaux<-df
+```
+
+Hem creat un dataframe auxiliar que serà una copia del dataframe original, per poder fer en tot moment la compartiva del que són les dades reals i les dades que anem tractant.
+
+
+## age
+Per a la variable "age", establim que tota edat que sigui 0 o bé sigui negatia serà considerada com a error.
+```{r}
+
+#Calcul missing data
+missingData<-which(is.na(dfaux$age)); length(missingData) #no missing data
+
+#Calcul errors (que assignem com NA per a la inputation)
+sel<-which(df$age <= 0); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"age"]<-NA
+}
+outers <- calcQ(dfaux$age)
+
+outlier<-which(dfaux$age > outers$souts);length(outlier)
+dfaux[outlier ,"age"]<-NA
+
+outlier<-which(dfaux$age < outers$souti);length(outlier)
+dfaux[outlier ,"age"]<-NA
+
+# 0 outliers severs, es adir que per la variable age no tenim ni errors ni miss
+
+outlier<-which(dfaux$age > outers$mouts);length(outlier)
+
+outlier<-which(dfaux$age < outers$mouti);length(outlier)
+#tenim 0 outliers inferiors.
+
+par(mfrow=c(1,1))
+boxplot(df$age)
+# A continuació veiem per on tallarien els outliers la mostra d'entrada.
+abline(h= outers$mouts,col="red",lty=2)
+
+```
+
+Per aquesta variable, hem decidit que no hi hauran outliers, ja que els outliers que ens dona la teoria de quartils, creiem que no representen la diversitat d'aquest cens. Per tant mostrem un boxplot on es veu per on hauriem de tallar segons els valors teorics, no obstant per desició pròpia decidim no fer-ho.
+
+## workclass
+
+Per aquesta variable, hem establert que com a errors tractarem com a errors a tots aquells valors que no formin part de les categories d'entrada definides al inici.
+```{r}
+missingData<-which(is.na(dfaux$type.employer)); length(missingData)
+imiss[missingData]<- imiss[missingData] +1
+jmiss[2] <- jmiss[2]+ length(missingData)
+
+#Tractarem com a error tot allo que no pertanyi al rang de valors que contemplem
+sel<-which(df$type.employer != 'Private' & df$type.employer != 'Self-emp-not-inc' &
+             df$type.employer != 'Self-emp-inc' & df$type.employer != 'Federal-gov' &
+             df$type.employer != 'Local-gov' & df$type.employer != 'State-gov' &
+             df$type.employer != 'Without-pay' & df$type.employer != 'Never-worked'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"type.employer"]<-NA
+}
+
+#Tenim 0 errors
+```
+
+Com podem observar no hi han ni errors, no obstant si que tenim algun NA.
+
+## fnlwgt
+
+En aquest cas, considerem errors aquells valors iguals o menor a 0. Amb aquesta variable no te sentit calcular els outliers perque ens és inútil.
+
+```{r}
+missingData<-which(is.na(dfaux$fnlwgt)); length(missingData) #no missing data
+#no tenim missing data
+
+sel<-which(dfaux$fnlwgt <= 0); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"fnlwgt"]<-NA
+}
+
+par(mfrow=c(1,2))
+boxplot(dfaux$fnlwgt)
+abline( h= outers$mouts, col="red", lty= 2)
+abline( h= outers$souts, col="red", lty= 2)
+
+boxplot(df$fnlwgt)
+abline( h= outers$mouts, col="red", lty= 2)
+```
+Reportem que no tenim cap missing value ni errors.
+
+## education
+
+Seguim l'esquema inicial pel càlcul de missings i errors a variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$education)); length(missingData)
+#no tenim missing data
+sel<-which(df$education != 'Bachelors' & df$education != 'Some-college' &
+             df$education != '11th' & df$education != 'HS-grad' &
+             df$education != 'Prof-school' & df$education != 'Assoc-acdm' &
+             df$education != 'Assoc-voc' & df$education != '9th' &
+             df$education != '7th-8th' & df$education != '12th' &
+             df$education != 'Masters' & df$education != '1st-4th' &
+             df$education != '10th' & df$education != 'Doctorate' &
+             df$education != '5th-6th' & df$education != 'Preschool'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"education"]<-NA
+}
+#no tenim errors
+```
+
+No tenim ni missing data ni errors.
+
+## education.num
+
+Veiem que aquesta variable sembla ser una discretització de la variable "education" (o que estan bastant lligades).
+
+```{r}
+df %>% slice (1:20) %>% select(education,education.num)
+
+summary(dfaux$education.num)
+
+misingData<-which(is.na(dfaux$education.num));length(missingData)
+# no hi ha errors
+sel<- which(dfaux$education.num < 1 | dfaux$education.num > 99);length(sel)
+#no hi ha errors
+```
+
+No tenim ni missing data ni errors. Com veiem al summary, no hi ha valors extrems i per tant considerem que no hi ha outliers.
+
+## marital status
+
+Repetim càlcul de missing i errors per variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$marital)); length(missingData)
+
+sel<-which(df$marital != 'Married-civ-spouse' & df$marital != 'Divorced' &
+             df$marital != 'Never-married' & df$marital != 'Separated' &
+             df$marital != 'Widowed' & df$marital != 'Married-spouse-absent' &
+             df$marital != 'Married-AF-spouse'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"marital"]<-NA
+}
+```
+No tenim ni missing data ni errors.
+
+## occupation
+
+Repetim càlcul de missing i errors per variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$occupation)); length(missingData)
+imiss[missingData]<- imiss[missingData] +1
+jmiss[7]<- jmiss[7] + length(missingData)
+
+sel<-which(df$occupation != 'Tech-support' & df$occupation != 'Craft-repair' &
+             df$occupation != 'Other-service' & df$occupation != 'Sales' &
+             df$occupation != 'Exec-managerial' & df$occupation != 'Prof-specialty' &
+             df$occupation != 'Handlers-cleaners' & df$occupation != 'Machine-op-inspct' &
+             df$occupation != 'Adm-clerical' & df$occupation != 'Farming-fishing' &
+             df$occupation != 'Transport-moving' & df$occupation != 'Priv-house-serv' &
+             df$occupation != 'Protective-serv' & df$occupation != 'Armed-Forces'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"occupation"]<-NA
+}
+```
+En aquest cas tenim 308 missing values i cap error.
+
+## relationship
+
+Repetim càlcul de missing i errors per variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$relationship)); length(missingData)
+
+sel<-which(df$relationship != 'Wife' & df$relationship != 'Own-child' &
+             df$relationship != 'Husband' & df$relationship != 'Not-in-family' &
+             df$relationship != 'Other-relative' & df$relationship != 'Unmarried'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"relationship"]<-NA
+}
+```
+
+No tenim ni missing data ni errors.
+
+## race
+
+Repetim càlcul de missing i errors per variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$race)); length(missingData)
+
+sel<-which(df$race != 'White' & df$race != 'Asian-Pac-Islander' &
+             df$race != 'Amer-Indian-Eskimo' & df$race != 'Other' &
+             df$race != 'Black'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"race"]<-NA
+}
+```
+
+No tenim ni missing data ni errors.
+
+## sex
+
+Repetim càlcul de missing i errors per variables discretes.
+
+```{r}
+missingData<-which(is.na(dfaux$sex)); length(missingData)
+
+sel<-which(df$sex != 'Female' & df$sex != 'Male'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"race"]<-NA
+}
+```
+
+No tenim ni missing data ni errors.
+
+## capital.gain
+
+Considerem errors aquells valors inferiors a 0 o iguals a 99999. D'altra banda, calculem els outliers i per aquells valors considerats com a "several outlier" els posem a NA per a que posteriorment siguin inputats.
+
+```{r}
+summary(dfaux$capital.gain)
+
+#Calcul missing data
+missingData<-which(is.na(dfaux$capital.gain)); length(missingData) #no missing data
+
+sel<-which(dfaux$capital.gain < 0 | dfaux$capital.gain == 99999); length(sel) # errors
+ierr[sel]<-ierr[sel] +1
+jerr[11]<- jerr[11]+length(sel)
+
+if(length(sel)>0){
+  dfaux[sel,"capital.gain"]<-NA
+}
+
+aux<- sort(dfaux[dfaux$capital.gain > 0,"capital.gain"],decreasing=TRUE); aux[1:30]
+```
+
+Decidim per el criteri propi establir que tot capital gain superior a 20000 serà considerat outlier.
+No considerem outlier inferior, perque les dades que siguin negatives(si hi ha), hauran estat tractades com a errors.
+
+```{r}
+outlimit <- 20000
+
+outlier<-which(dfaux$capital.gain > outlimit);length(outlier)
+ierr[outlier] <- ierr[outlier]+1
+jerr[11]<- jerr[11] + length(outlier)
+dfaux[outlier ,"capital.gain"]<-NA
+
+
+par(mfrow=c(1,3))
+boxplot(df$capital.gain,main="Original Data")
+boxplot(dfaux$capital.gain, main= "Eliminant els outliers i errors")
+boxplot(dfaux[dfaux$capital.gain>0,"capital.gain"], main= "Eliminant outliers, errors i 0")
+```
+En el primer boxplot no veiem res al respecte, ja que la majoria de dades són 0, per tant mostrem que si treiem les que són 0 del segon boxplot, on hem posat els outliers a NA, ens queda un boxplot bastant bonic.
+
+No tenim errors pero tenim 407 missing data. Els several outliers han estat posats a NA.
+
+## capital.loss
+
+Calculem errors, missings i outliers de manera anàloga a com s'ha fet amb la variable capital.loss
+
+```{r}
+summary(dfaux$capital.loss)
+
+missingData<-which(is.na(dfaux$capital.loss)); length(missingData) #no missing data
+
+sel<-which(df$capital.loss < 0 | df$capital.los == 99999); length(sel) # errors
+if(length(sel)>0){
+  dfaux[sel,"capital.loss"]<-NA
+}
+#no hi han errors
+
+aux<- sort(dfaux[dfaux$capital.loss > 0,"capital.loss"],decreasing=TRUE); aux[1:30]
+par(mfrow=c(1,2))
+boxplot(df$capital.loss,main="dades originals")
+boxplot(dfaux[dfaux$capital.loss>0,"capital.loss"],main="no 0")
+```
+
+No tenim errors pero tenim 248 missing data.  En aquesta variable no tenim en compte outliers, ja que després d'analitzar les dades hem vist que no hi ha cap valor tant extrem com per a considerar-lo outlier.
+
+## hr.per.week
+
+Considerem errors aquells valors que siguin menor o igual a 0 o iguals a 99.
+
+```{r}
+summary(dfaux$hr.per.week)
+
+
+ll<-which(is.na(dfaux$hr.per.week));ll
+#no tenim na
+sel<-which(dfaux$hr.per.week <= 0 | dfaux$hr.per.week ==99); length(sel) # errors
+ierr[sel]<- ierr[sel]+1
+jerr[13]<- jerr[13]+length(sel)
+dfaux[sel,"hr.per.week"]<-NA
+```
+
+
+Tenint en compte que la jornada labroal màxima es de 40 hores setmanals, establirem el limit a un 150% d'aquesta, es a dir 60 hores. Establim un limit inferior també, ja que considerarem que treballar menys de 10 hores serà outlier
+```{r}
+outlimit<- 60
+outlier<-which(dfaux$hr.per.week > outlimit );length(outlier) #outliers superiors critics
+ierr[outlier]<- ierr[outlier] +1
+jerr[13]<-jerr[13]+length(outlier)
+dfaux[outlier,"hr.per.week"]<-NA
+
+outlimit<- 10
+outlier<-which(dfaux$hr.per.week < outlimit );length(outlier) #outliers superiors critics
+ierr[outlier]<- ierr[outlier] +1
+jerr[13]<-jerr[13]+length(outlier)
+dfaux[outlier,"hr.per.week"]<-NA
+
+par(mfrow=c(1,2))
+boxplot(df$hr.per.week)
+abline(h= 60,col="red",lty=2)
+abline(h= 10,col="red",lty=2)
+
+boxplot(dfaux$hr.per.week)
+```
+
+No tenim errors ni missing values. Els several outliers han estat posats a NA.
+
+## country
+
+
+```{r}
+missingData<-which(is.na(dfaux$country)); length(missingData)
+
+imiss[missingData]<- imiss[missingData] + 1
+jmiss[14]<-jmiss[14]+length(missingData)
+
+sel<-which(df$country != 'United-States' & df$country != 'Cambodia' &
+             df$country != 'England' & df$country != 'Puerto-Rico' &
+             df$country != 'Canada' & df$country != 'Germany' &
+             df$country != 'Outlying-US(Guam-USVI-etc)' & df$country != 'India' &
+             df$country != 'Japan' & df$country != 'Greece' &
+             df$country != 'South' & df$country != 'China' &
+             df$country != 'Cuba' & df$country != 'Iran' &
+             df$country != 'Honduras' & df$country != 'Philippines' &
+             df$country != 'Italy' & df$country != 'Poland' &
+             df$country != 'Jamaica' & df$country != 'Vietnam' &
+             df$country != 'Mexico' & df$country != 'Portugal' &
+             df$country != 'Ireland' & df$country != 'France' &
+             df$country != 'Dominican-Republic' & df$country != 'Laos' &
+             df$country != 'Ecuador' & df$country != 'Taiwan' &
+             df$country != 'Haiti' & df$country != 'Columbia' &
+             df$country != 'Hungary' & df$country != 'Guatemala' &
+             df$country != 'Nicaragua' & df$country != 'Scotland' &
+             df$country != 'Thailand' & df$country != 'Yugoslavia' &
+             df$country != 'El-Salvador' & df$country != 'Trinadad&Tobago' &
+             df$country != 'Peru' & df$country != 'Hong' &
+             df$country != 'Holand-Netherlands'); length(sel) # errors
+
+if(length(sel)>0){
+  dfaux[sel,"country"]<-NA
+}
+```
+
+Tenim 88 missing values i no tenim cap error.
+
+## y.bin
+
+En aquest cas estem tractant una variable binaria, per tant només té sentit analitzar el nombre de missing values.
+
+```{r}
+missingData<-which(is.na(dfaux$y.bin)); length(missingData)
+```
+
+No tenim missing values.
+<br/>
+<br/>
+<br/>
+Tot aquest procés es podria fer per les variables reagrupades i discretitzades. No obstant, considerem que no té sentit ja que previament ja estem tractant tots els casos.
+
+## Recompte d'errors, per individu
+A continuació veurem quants errors te cada individu, i també veurem la mitjana d'error per cada clase. Realitzarem la mitjana fent l suma de error, outliers i missing dividit entre 3, de tal manera que veurem per cada clase quina es la mitjana d'errors outliers i missings.
+```{r}
+#afegim la variable que es la suma dels errors missings i outliers al df
+dfaux$i.rank<-  ierr + imiss + iout
+
+#realitzar la mitjana de tot per variable.
+aux<-(countNA(dfaux)$mis_col)/3
+
+install.packages("corrplot")
+
+library(corrplot)
+t<- df[,vars_con]
+df$i.rank <- dfaux$i.rank
+t$i.rank <- df[,"i.rank"]
+corMatrix<-cor(t); corMatrix
+
+corrplot(corMatrix, type = "upper", order = "hclust",
+         tl.col = "black", tl.srt = 45)
+```
+
+Veiem que la variable i.rank, aquella que resumeix quants errors/missings/outliers hi ha per individu, no te gaire correlació amb les altres variables (numériques).
+
+# Imputació de variables
+En aquest apartat el que realitzarem és per totes aquelles variables que hem categoritzat com  preillosses, és a dir que estan en la categoría err/miss/out, farem una aproximació del valor o categoria, mitjançant imputePCA o imputeMCA, respectivament.
+
+```{r}
+
+install.packages("missMDA")
+library(missMDA)
+
+# numericas
+res.num<-imputePCA(dfaux[,vars_con])
+summary(res.num$completeObs)
+summary(dfaux[,vars_con])
+
+
+```
+
+Per a les variables numériques, veiem que no hi ha gran diferència entre el summary de la original, es a dir amb els NA, que a la actual, els valors mean i quartils, no es veuen afectats de gran manera, així que acceptem aquesta imputació.
+
+
+
+
+
+```{r}
+# descriptivas
+res.des<-imputeMCA(dfaux[,vars_dis])
+summary(res.des$completeObs)
+summary(dfaux[,vars_dis])
+```
+
+El mateix que per les variables numériques, veiem ara amb les descriptives. No hi han grans alteracions de les dades, que ens facin rebutjar la imputació d'aquestes.
+
+
+Un cop tenim les dades correctes, procedim a modificarles directament en el data frame.
+
+```{r}
+dfaux[,vars_con]<- res.num$completeObs
+dfaux[,vars_dis]<- res.des$completeObs
+```
+
+
+# Profiling
+
+En aquest apartat veurem la rellevància de cada variable, respecte els nostres targets (hr.per.week, i y.bin).
+
+En primer lloc realitzarem el profilling per el target numéric (hr.per.week)
+
+## hr.per.week
+```{r}
+vars<-names(dfaux)[c(13,1,3,5:12,14:21)]
+
+
+condes(dfaux[,vars],1,prob=0.01)
+
+```
+
+Veiem que les variables que tenen major correlació amb el target quantitat d'hores treballades, són  education.num i relationship. amb correlacions superiors al 0.1.
+<br/>
+
+També observem que hi han variables que tenen importància, no obstant no tanta com les que hem esmentat anteriorment, i per últim tenim aquelles variables que realment no tenen molta relevancia, com seria la raça. Aquesta particularment ens ha sobtat, ja que a priori creiem que anava a ser una de les que anava a tenir major relevància ja que habitualment creiem que la raça ens limita al moment de establir un sou.
+<br/>
+
+No ens ha sorprès que la variable i.rank, la que defineix el nombre de missings i d'errors sigui inversament proporcional al número d'hores treballades, ja a major nombre d'hores treballades indica que hi ha major nombre d'hores d'estudi, amb el que podem concloure que aquelles persones que més anys han estudiat, generen menys errors o no es deixen les dades per completar, en enquestes del tipus que es planteja en aquest informe.
+
+## y.bin
+
+```{r}
+vars<-names(dfaux)[c(15,1,3,7:10,13:14,16:21)]
+
+catdes(dfaux[,vars],1,prob=0.01)
+
+```
+
+Per a la variable si cobren mes de 50 mil anuals o no, veiem que per exemple la mitjana d'edat que tenen un sou inferior a 50 mil es menor a la que els tenen major, de 37 anys de mitjana a 44. és a dir que l'edat te una gran importància en el que ve a ser el fet de tenir un sou més elevat, probablement aixó es degut a que una persona d'edat major té més experiència, i per tant té millor remuneració en el seu àmbit de treball.
+<br/>
+
+També tenim una dada important que són les hores de treball de mitjana, la majoria de persones que cobren més de 50mil són aquelles que setmanalment excedeixen el límit de 40 hores establert a Espanya. Amb el que majoritariament podem dir que aquelles persones que treballen més hores acustumen a tenir un sou més elevat.
+
+<br/>
+
+També podem veure variables importants com els estudis, la gran part de les persones que no tenen estudis, o que tenen uns estudis baixos, acustumen a tenir un sou menor a 50mil anuals. No obstant les persones més preparades, si que tenen un percentatge més alt de cobrar un sou més elevat no obstant no son la majoria que tenen un sou elevat.
