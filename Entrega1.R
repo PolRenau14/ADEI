@@ -657,3 +657,69 @@ names(dfaux)
 vars<-names(dfaux)[c(15,1,3,7:10,13:14,16:19)]
 
 catdes(dfaux[,vars],1,prob=0.01)
+
+
+par(mfrow=c(1,2))
+res.pca <- PCA(dfaux[,vars_con], quanti.sup = 5)
+vars_con
+names(dfaux)
+res.pca <- PCA(dfaux[,c(vars_con,"y.bin","f.type","f.marital","f.education")],quanti.sup=6, quali.sup=7:10)
+
+summary(res.pca,nb.dec =2,nbelements=Inf,nbind=0)
+#hem d'agafar aquells superiors a uns Kaiser.
+
+#dim 1 2 i 3.
+
+
+barplot(res.pca$eig[,1])
+
+fviz_eig(res.pca,addlabels=T)
+
+par(mfrow=c(1,1))
+plot(res.pca,choix="ind",label="none",col.ind="grey80")
+#Treiem les etiquetes, de la grafica per a que no molestin.
+
+#volem veure els ind més contributius
+
+plot(res.pca,choix="ind",col.ind="grey10",select= "contrib 10",cex=0.5)
+#els que estan mes lluny contribueixen més,
+
+#tria dels mes contributius
+
+#dim1
+res.pca$ind$contrib[,1]
+Boxplot(res.pca$ind$contrib[,1])
+rang1<-order(res.pca$ind$contrib[,1],decreasing = TRUE)
+rang1[1:10]
+
+#son las files del dataframe (mostra)
+rownames(dfaux[rang1[1:10],])
+
+#veiem que els valors de la segona dimensió tnene major importancia ja que els valor ssignificatius estan en extrems de la DIM 2
+ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+
+#qui son?
+dfaux[ll,c(vars_con,vars_dis)]
+#si tenim un individu molt extrany hauriem de posar una etiqueta de outlier multivariant.
+
+#repetir aixo per totes les dimensions.
+fviz_pca_ind(res.pca,col.ind="contrib",geom="point",gradient.cols= c("yellow","red","black"))
+#si totes contribueixen igual i ha una contribució de 1/numdades
+
+summary(res.pca,nb.dec=2,nbelements=Inf,nbind=0,ncp=3)
+#en el sumarry veiem els centres de gravetat de les variables suplementaries
+
+dimdesc(res.pca)
+par(mfrow=c(1,1))
+plot(res.pca,choix="ind",invisible=c("ind","ind.sup"),cex=0.9)
+
+lines(res.pca$quali.sup$coord[1:2,1],res.pca$quali.sup$coord[1:2,2],col="blue",lty=1,lwd=2)
+
+length(res.pca$quali.sup$coord[,1])
+
+lines(res.pca$quali.sup$coord[3:6,1],res.pca$quali.sup$coord[3:6,2],col="red",lty=1) #f.type
+
+lines(res.pca$quali.sup$coord[7:10,1],res.pca$quali.sup$coord[7:10,2],col="green",lty=1) #f.marital
+
+lines(res.pca$quali.sup$coord[10:15,1],res.pca$quali.sup$coord[11:15,2],col="black",lty=1) #f.marital
+
