@@ -177,20 +177,43 @@ ll<-which(df$education == "Some-college")
 df$f.education[ll]<-2
 ll<-which(df$education %in% c("Doctorate","Bachelors","HS-grad","Masters"))
 df$f.education[ll]<-3
-ll<-which(df$education %in% c("Assoc-acdm","Assoc-voc"))
+ll<-which(df$education %in% c("Assoc-acdm","Assoc-voc","Prof-school"))
 df$f.education[ll]<-4
-ll<-which(df$education == "Prof-school")
-df$f.education[ll]<-5
 
 # Define f.type as a factor and use 'nice' level names
 
-df$f.education<-factor(df$f.education,levels=1:5,labels=paste0("f.education-",c("Non-Graduate","Some-college","University-Or-More","Assoc","Proof-school")))
+df$f.education<-factor(df$f.education,levels=1:4,labels=paste0("f.education-",c("Non-Graduate","Some-college","University-Or-More","Assoc_AND_Proof-school")))
 
 summary(df$f.education)
 
-barplot(table(df$f.education))
+barplot(table(df$f.education),col=rainbow(12))
 tapply(df$hr.per.week,df$f.education,mean)
 
+
+#######
+#country
+
+
+levels(df$country)
+
+barplot(table(df$country))
+table(df$country)
+
+
+tapply(df$hr.per.week,df$country,mean)
+
+df$f.country<-1
+ll<-which(df$country == "United-States");ll
+df$f.country[ll]<-2
+
+# Define f.type as a factor and use 'nice' level names
+
+df$f.country<-factor(df$f.country,levels=1:2,labels=paste0("f.country-",c("Not-USA","USA")))
+
+summary(df$f.country)
+
+barplot(table(df$f.country))
+tapply(df$hr.per.week,df$f.country,mean)
 
 
 #########
@@ -474,10 +497,11 @@ if(length(sel)>0){
 
 aux<- sort(dfaux[dfaux$capital.gain > 0,"capital.gain"],decreasing=TRUE); aux[1:30]
 
-#decidim per el criteri propi establir que tot capital gain superior a 20000 serà considerat outlier.
-#no considerem outlier inferior, perque les dades que siguin negatives(si hi ha), hauran estat tractades com a errors
+#decidim per el criteri propi establir que tot capital gain superior a 28000 serà considerat outlier.
+#no considerem outlier inferior, perque les dades que siguin negatives(si hi ha), hauran estat tractades com a errors. 
+#ens basem en que són uns valors que depunten en relació a ala majoria d'aquesta clase.
 
-outlimit <- 20000
+outlimit <- 28000
 
 outlier<-which(dfaux$capital.gain > outlimit);length(outlier)
 ierr[outlier] <- ierr[outlier]+1
@@ -641,19 +665,19 @@ dfaux[,vars_dis]<- res.des$completeObs
 
 ##  Profiling
 
-
+#'sha de fer nomes de les agrupades
 #numeric target
 
 
 names(dfaux)
-vars<-names(dfaux)[c(13,1,3,5:12,14:19)]
-
+vars<-names(dfaux)[c(13,3,5,7:12,15:22)];vars
 
 condes(dfaux[,vars],1,prob=0.01)
 
 
 #Factor(y.bin)
 names(dfaux)
-vars<-names(dfaux)[c(15,1,3,7:10,13:14,16:19)]
+vars<-names(dfaux)[c(15,3,5,7:13,16:22)]
 
 catdes(dfaux[,vars],1,prob=0.01)
+
