@@ -681,3 +681,10 @@ vars<-names(dfaux)[c(15,3,5,7:13,16:22)]
 
 catdes(dfaux[,vars],1,prob=0.01)
 
+
+#save new set of data.
+
+df<-dfaux
+df<-df[,1:21]
+#guardem sense la i.rank
+save(list="df",file="mostra2.RData")
