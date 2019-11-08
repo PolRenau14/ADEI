@@ -200,20 +200,18 @@ barplot(table(df$country))
 table(df$country)
 
 
-tapply(df$hr.per.week,df$country,mean)
-
-df$f.country<-1
-ll<-which(df$country == "United-States");ll
-df$f.country[ll]<-2
+summary(df$country)
+df$f.continent<-"f.continent-America"
+ll<-which(df$country %in% c("China","Hong","Philippines","Taiwan","Thailand","India","Iran","Japan","Vietnam"));ll
+df$f.continent[ll]<-"f.continent-Asia"
+ll<-which(df$country %in% c("England","France","Germany","Greece","Ireland","Italy","Portugal","Yugoslavia"));ll
+df$f.continent[ll]<-"f.continent-Europa"
 
 # Define f.type as a factor and use 'nice' level names
 
 df$f.country<-factor(df$f.country,levels=1:2,labels=paste0("f.country-",c("Not-USA","USA")))
 
-summary(df$f.country)
 
-barplot(table(df$f.country))
-tapply(df$hr.per.week,df$f.country,mean)
 
 
 #########
@@ -264,6 +262,32 @@ barplot(table(df$age),main="Original",col=rainbow(12))
 
 barplot(table(df$f.age),main="Discret",col=rainbow(12))
 
+#Hores per week
+
+summary(df$hr.per.week)
+df$f.hpw<-"f.hpw[50-60]"
+ll<-which(df$hr.per.week <20);length(ll)
+df$f.hpw[ll]<-"f.hpw[10-20]"
+ll<-which(df$hr.per.week >= 20 & df$hr.per.week < 30);length(ll)
+df$f.hpw[ll]<-"f.hpw[20-30]"
+ll<-which(df$hr.per.week >= 30 & df$hr.per.week < 40);length(ll)
+df$f.hpw[ll]<-"f.hpw[30-40]"
+ll<-which(df$hr.per.week >= 40 & df$hr.per.week < 50);length(ll)
+df$f.hpw[ll]<-"f.hpw[40-50]"
+
+#Education num
+
+
+tapply(df$hr.per.week,df$education.num,mean)
+
+summary(df$education.num)
+df$f.educationNum<-"f.educationnum[13-16]"
+ll<-which(df$education.num <=4);length(ll)
+df$f.educationNum[ll]<-"f.educationnum[1-4]"
+ll<-which(df$education.num > 4 & df$education.num < 9);length(ll)
+df$f.educationNum[ll]<-"f.educationnum[5-8]"
+ll<-which(df$education.num >= 9 & df$education.num < 13);length(ll)
+df$f.educationNum[ll]<-"f.educationnum[9-12]"
 
 ## Data Quality
 
@@ -541,40 +565,6 @@ boxplot(dfaux[dfaux$capital.loss>0,"capital.loss"],main="no 0")
 
 
 
-### hr.per.week
-
-summary(dfaux$hr.per.week)
-
-
-ll<-which(is.na(dfaux$hr.per.week));ll
-#no tenim na
-sel<-which(dfaux$hr.per.week <= 0 | dfaux$hr.per.week ==99); length(sel) # errors
-ierr[sel]<- ierr[sel]+1
-jerr[13]<- jerr[13]+length(sel)
-dfaux[sel,"hr.per.week"]<-NA
-
-
-
-#tenint en compte que la jornada labroal màxima es de 40 hores etmanals, establirem el limit a un 150% d'aquesta, es a dir 60 hores
-# establim un limit inferior també, ja que considerarem que treballar menyys de 10 hores esra outlier
-outlimit<- 60
-outlier<-which(dfaux$hr.per.week > outlimit );length(outlier) #outliers superiors critics
-ierr[outlier]<- ierr[outlier] +1
-jerr[13]<-jerr[13]+length(outlier)
-dfaux[outlier,"hr.per.week"]<-NA
-
-outlimit<- 10
-outlier<-which(dfaux$hr.per.week < outlimit );length(outlier) #outliers superiors critics
-ierr[outlier]<- ierr[outlier] +1
-jerr[13]<-jerr[13]+length(outlier)
-dfaux[outlier,"hr.per.week"]<-NA
-
-par(mfrow=c(1,2))
-boxplot(df$hr.per.week)
-abline(h= outers$souts,col="red",lty=2)
-abline(h= 10,col="red",lty=2)
-
-boxplot(dfaux$hr.per.week)
 
 
 
@@ -621,15 +611,19 @@ missingData<-which(is.na(dfaux$y.bin)); length(missingData)
 
 
 ####
+install.packages("corrplot")
+install.packages("missMDA")
+install.packages("FactoMineR")
+
+library(corrplot)
+
 #afegim la variable que es la suma dels errors missings i outliers al df
 dfaux$i.rank<-  ierr + imiss + iout
 
 #que entenem per calcular la mitjana de out/err/miss, sumar tots per columna i dividir entre 3(miss/err/out)?????
 aux<-(countNA(dfaux)$mis_col)/3
 
-install.packages("corrplot")
 
-library(corrplot)
 t<- df[,vars_con]
 df$i.rank <- dfaux$i.rank
 t$i.rank <- df[,"i.rank"]
@@ -638,19 +632,54 @@ corMatrix<-cor(t); corMatrix
 corrplot(corMatrix, type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45)
 
+
+### hr.per.week
+#com es un dels targets, els errors els eliminem.
+
+summary(dfaux$hr.per.week)
+
+
+ll<-which(is.na(dfaux$hr.per.week));ll
+#no tenim na
+sel<-which(dfaux$hr.per.week <= 0 | dfaux$hr.per.week ==99); length(sel) # errors
+dfaux<-dfaux[-sel,]
+
+
+
+#tenint en compte que la jornada labroal màxima es de 40 hores etmanals, establirem el limit a un 150% d'aquesta, es a dir 60 hores
+# establim un limit inferior també, ja que considerarem que treballar menyys de 10 hores esra outlier
+outlimit<- 60
+outlier<-which(dfaux$hr.per.week > outlimit );length(outlier) #outliers superiors critics
+
+dfaux<-dfaux[-outlier,]
+
+outlimit<- 10
+outlier<-which(dfaux$hr.per.week < outlimit );length(outlier) #outliers superiors critics
+
+dfaux<-dfaux[-outlier,]
+
+par(mfrow=c(1,2))
+boxplot(df$hr.per.week)
+abline(h= outers$souts,col="red",lty=2)
+abline(h= 10,col="red",lty=2)
+
+boxplot(dfaux$hr.per.week)
+
+
 #veiem que la variable de no te gaire correlació amb cap de les altres variables numeriques.
 ##############
 
 
 ## Imputing variables
 
-install.packages("missMDA")
+
+library(FactoMineR)
 library(missMDA)
 
 # numericas
-res.num<-imputePCA(dfaux[,vars_con])
+res.num<-imputePCA(dfaux[,vars_con[1:5]])
 summary(res.num$completeObs)
-summary(dfaux[,vars_con])
+summary(dfaux[,vars_con[1:5]])
 
 # descriptivas
 res.des<-imputeMCA(dfaux[,vars_dis])
@@ -658,9 +687,8 @@ summary(res.des$completeObs)
 summary(dfaux[,vars_dis])
 
 #### substituim aquelles variables imputades a les dades.
-dfaux[,vars_con]<- res.num$completeObs
+dfaux[,vars_con[1:5]]<- res.num$completeObs
 dfaux[,vars_dis]<- res.des$completeObs
-
 
 
 ##  Profiling
@@ -670,14 +698,13 @@ dfaux[,vars_dis]<- res.des$completeObs
 
 
 names(dfaux)
-vars<-names(dfaux)[c(13,3,5,7:12,15:22)];vars
+vars<-names(dfaux)[c(13,3,5,7:12,15:24)];vars
 
-condes(dfaux[,vars],1,prob=0.01)
-
+condes(dfaux[,vars],num.var=1,prob=0.01)
 
 #Factor(y.bin)
 names(dfaux)
-vars<-names(dfaux)[c(15,3,5,7:13,16:22)]
+vars<-names(dfaux)[c(15,3,5,7:13,16:24)]
 
 catdes(dfaux[,vars],1,prob=0.01)
 
@@ -685,6 +712,5 @@ catdes(dfaux[,vars],1,prob=0.01)
 #save new set of data.
 
 df<-dfaux
-df<-df[,1:21]
 #guardem sense la i.rank
 save(list="df",file="mostra2.RData")
