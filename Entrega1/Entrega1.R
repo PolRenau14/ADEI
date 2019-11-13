@@ -130,7 +130,6 @@ barplot(table(df$f.type))
 
 #marital:
 
-
 levels(df$marital)
 
 barplot(table(df$marital))
@@ -163,7 +162,6 @@ barplot(table(df$f.marital))
 
 #education:
 
-
 levels(df$education)
 
 barplot(table(df$education))
@@ -193,7 +191,7 @@ tapply(df$hr.per.week,df$f.education,mean)
 #######
 #country
 
-
+summary(df$country)
 levels(df$country)
 
 barplot(table(df$country))
@@ -206,13 +204,9 @@ ll<-which(df$country %in% c("China","Hong","Philippines","Taiwan","Thailand","In
 df$f.continent[ll]<-"f.continent-Asia"
 ll<-which(df$country %in% c("England","France","Germany","Greece","Ireland","Italy","Portugal","Yugoslavia"));ll
 df$f.continent[ll]<-"f.continent-Europa"
-
-# Define f.type as a factor and use 'nice' level names
-
-df$f.country<-factor(df$f.country,levels=1:2,labels=paste0("f.country-",c("Not-USA","USA")))
-
-
-
+ll<-which(is.na(df$country)); ll
+df$f.continent[ll]<-NA
+summary(df$f.continent)
 
 #########
 
@@ -416,7 +410,6 @@ if(length(sel)>0){
 
 ### education.num
 
-df %>% slice (1:20) %>% select(education,education.num)
 #com veiem aquesta variable sembla ser que es una discretització de la variable education, o que estan bastant lligades
 summary(dfaux$education.num)
 
@@ -664,10 +657,7 @@ abline(h= outers$souts,col="red",lty=2)
 abline(h= 10,col="red",lty=2)
 
 boxplot(dfaux$hr.per.week)
-
-
-#veiem que la variable de no te gaire correlació amb cap de les altres variables numeriques.
-##############
+#############
 
 
 ## Imputing variables
@@ -675,20 +665,24 @@ boxplot(dfaux$hr.per.week)
 
 library(FactoMineR)
 library(missMDA)
-
 # numericas
-res.num<-imputePCA(dfaux[,vars_con[1:5]])
+res.num<-imputePCA(dfaux[,vars_con[1:5]]) # no imputem el target
 summary(res.num$completeObs)
 summary(dfaux[,vars_con[1:5]])
 
+
+# les variables no s'ha guardat com a factors. fem un factor i ale
+dfaux$f.continent<-factor(dfaux$f.continent)
+
+
 # descriptivas
-res.des<-imputeMCA(dfaux[,vars_dis])
+res.des<-imputeMCA(dfaux[,c("occupation","relationship","race","sex","f.continent","f.marital")])
 summary(res.des$completeObs)
-summary(dfaux[,vars_dis])
+summary(dfaux[,c("occupation","relationship","race","sex","f.continent","f.marital")])
 
 #### substituim aquelles variables imputades a les dades.
 dfaux[,vars_con[1:5]]<- res.num$completeObs
-dfaux[,vars_dis]<- res.des$completeObs
+dfaux[,c("occupation","relationship","race","sex","f.continent","f.marital")]<- res.des$completeObs
 
 
 ##  Profiling

@@ -1,0 +1,14 @@
+Y seran el target.
+
+hem d'assignar un model al target.
+
+Modelar regressió-lineal simple : obtenir la millor recta que s'ajusta als valors donats.
+
+No te sentit fer prediccions que son fora de la mostra. exemple de clasee => no te sentit predir entre 0 nens per clase. o 60 nens per clase.
+Residual = valor real - valor predit. (dist vertical entre el punt i la recta.)
+
+
+Intervals de confiança per prediccions.
+
+Hatmatrix :
+matriu de NxN = projecta les dades originals al hiperpla de les dades.
