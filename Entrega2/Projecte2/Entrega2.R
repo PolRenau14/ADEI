@@ -1,4 +1,7 @@
 load("mostra2.RData")
+
+df$f.hpw<- factor(df$f.hpw)
+df$f.educationNum <- factor(df$f.educationNum)
 #Aquesta es la mostra de l'anterior pràctica ( amb les variables imputades, i )
 summary(df)
 library(FactoMineR)
@@ -12,18 +15,16 @@ vars_dis<-names(df)[c(7,9,10,15:23)];vars_dis
 
 
 #PCA Analysis -----------------------------------------------------------------
-
+#crec que en lloc de fer aquest hem de fer el que hi ha més abaix, que te variables qualitatives sup i quanti sup
 #Fem l'analisi incialment sobre totes les variables
 res.pca <- PCA(df[,c(1,3,5,11:13)])
 
 #Display dels Eigenvalues i % explicat amb cada dimensio, veiem que segons
-#kaiser hauriem d'agafar les primeres tres dimensions, que expliquen un 57.82% de la inertia 
+#kaiser hauriem d'agafar les primeres tres dimensions, que expliquen un 66.16% de la inertia 
 summary(res.pca,nb.dec=2,nbelements = Inf,nbind = 0)
 
 #Plot per veure quines dim son >1 per explicar-les pel criteri de kaiser
 barplot(res.pca$eig[,1])
-abline(h= 1,col="red",lty=2)
-#Veiem que necesitem les 3 primeres dimensions segons el criteri de Kaiser.
 
 #Ara cercem els individus que mes contribueixen. Seran els que queden mes als extrems del primer plot
 #Al segon plot busquem els 10 que mes contribueixen i el seu valor
@@ -72,6 +73,8 @@ abline(h= 1,col="red",lty=2)
 
 # Per criteri de Elbow's sabem que hem d'agafar 4 Clausters. ( aquelles components que expliquen el 80 % de la variancia)
 
+num.clusters<- 4
+
 barplot(res.pca$eig[,3],col= colors[ifelse(res.pca$eig[,3] < 85, 1, 2)])
 abline(h=80,col="red",lty=2)
 
@@ -80,19 +83,16 @@ abline(h=80,col="red",lty=2)
 #Kmeans només es pot fer per aquelles variables que són numeriques.
 install.packages("factoextra")
 library(factoextra)
-num.clusters<- 5
 names(df)
-df$f.hpw<- factor(df$f.hpw)
-df$f.educationNum <- factor(df$f.educationNum)
 df.numeriques <- df[,c(1,3,5,11:13)]
-kmeans.res <- kmeans(df.numeriques,4)
+kmeans.res <- kmeans(df.numeriques,num.clusters)
 summary(kmeans.res$centers)
 
 #Hierarchical Clustering------------------------------------------------
 
-res.hcpc<-HCPC(res.pca,nb.clust=5,graph=T) 
+res.hcpc<-HCPC(res.pca,nb.clust=num.clusters,graph=T) 
 
-
+#Això ho hem de fer per a totes les variables??
 
 prop.table(table(df$f.education,df$f.hpw),1) #Row proportions
 prop.table(table(df$f.education,df$f.hpw),2) #Column proportions
@@ -109,7 +109,7 @@ lines(res.ca1$row$coord[,1],res.ca1$row$coord[,2],col="blue",lwd=2)
 summary(res.ca1,ncp=2)
 
 plot.CA(res.ca1.selectCol="contrib 2",invisible="row")
-
+## FINS AQUI
 
 
 ###MCA
@@ -120,6 +120,8 @@ names(df)
 res.mca1<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3)
 #hr.per setmana esta relaconat possitvament amb la primera dimensió
 #nombre total de categories dels factors que són actius
+#També veiem que no esta molt relacionat amb la dim 2, però també esta relacionat de manera
+#negativa respecte la dim 2
 
 #sortida no grafica
 summary(res.mca1,nbind=0,nbelements = 30, ncp=2 )
