@@ -3,14 +3,14 @@ title: "Entrega2"
 author: "Pol Renau Miguel Angel Merino"
 date: \today
 output:
-  html_document:
-    toc: no
-    toc_depth: '4'
   pdf_document:
     latex_engine: pdflatex
     number_sections: yes
     toc_depth: 4
     toc: yes
+  html_document:
+    toc: no
+    toc_depth: '4'
   word_document:
     toc: yes
     toc_depth: '4'
@@ -115,20 +115,17 @@ Seguidament, farem un anàlisi dels eixos. Per a decidir quins analitzarem, ens 
 Boxplot(res.pca$ind$contrib[,1])
 rang1<-order(res.pca$ind$contrib[,1],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
 
 
 #Dim 2
 Boxplot(res.pca$ind$contrib[,2])
 rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
 
 #Dim 3
 Boxplot(res.pca$ind$contrib[,3])
 rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
 
 ```
 
@@ -193,26 +190,20 @@ Pel que fa a l'analisi de les dimensións, on seguim amb les tres primeres dimen
 
 ```{r}
 
-
 #Dim 1
 Boxplot(res.pca$ind$contrib[,1])
 rang1<-order(res.pca$ind$contrib[,1],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
-
 
 #Dim 2
 Boxplot(res.pca$ind$contrib[,2])
 rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
 
 #Dim 3
 Boxplot(res.pca$ind$contrib[,3])
 rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-df[rang1[1:10],c(vars_con,vars_dis)]
-
 
 ```
 
@@ -288,7 +279,7 @@ Cluster 2:
   Igual que al primer clusten en quan al capital gain i capital loss
   Aquest grup te menys hores d'estudi que la mitjana.
   
-#### Cluster 3:
+### Cluster 3:
   Aquest cluster són dels que tenen major hores invertides en educació, i estan per sobre de la mirjana
   En quan a les hores treballades també estan en mitjana significativament per sobre de la global, però tampoc molt
   No tenen practicament capital loss, i tenen un capital gain bastant reduït respecte la mitjana
@@ -307,20 +298,77 @@ Cluster 2:
   Estan en quan a anys d'estudi semblants al cluster 4.
   I l'edat es també aproximadament mitjana edat. ( molt proper a la mitjana 44)
 
+# Análisis CA
+
+Seguidament, farem l'anàlisi de correspondències simples per poder analitzar les relacions entre dos factors de la nostra mostra. En el nostre cas, utilitzarem les variables qualitatives "f.education" i "f.hpw".
+
+Inicialment estudiem els perfils marginals per fila:
+
+```{r}
+
+prop.table(table(df$f.education,df$f.hpw),1)
+
+```
+
+En base a la darrera columna, podriem dir que a major grau educatiu, major quantita d'hores es treballen. No obstant, veiem que més o menys son perfils homogenis i per tant no podem confirmar que hi hagi dependència entre ells.
+
+Proseguim amb l'anàlisi dels perfils marginals per columna:
+
+```{r}
+
+prop.table(table(df$f.education,df$f.hpw),2)
+
+```
+
+Tot i que també podem veure com hi aparèixen algunes relacions, per a assegurar-nos el que farem es realitzar un test de la chi-quadrat en base a la hipòtesi nula H0 definida com que les files i les columnes no son dependents.
+
+```{r}
+
+chisq.test(table(df$f.education,df$f.hpw))
+
+```
+
+Veiem que el p-value és menor a 2.2e-16, és a dir, és un valor tant ínfim que ens permet rebutjar la hipòtesi nula.
+
+Aquest seria l'anàlisi per via descriptiva, a continuació hauria d'anar l'anàlisi de CA però per motius que desconeixem no ens és possible executar aquest anàlis, per tant, ens quedarem amb els resultats obtinguts mitjançant l'estudi descriptiu. 
+
+```{r}
+
+#res.ca1<-CA(table(df[,c("f.education","f.hpw")]))
+
+```
+
+A continuació, repetirem aquest anàlisi pero tractant de trobar relació amb la variable "f.marital".
+
+```{r}
+
+prop.table(table(df$f.marital,df$f.hpw),1)
+
+prop.table(table(df$f.marital,df$f.hpw),2)
+
+```
+
+Novament, podem veure algunes relacions pero res rellevant que ens faci pensar que existeix una relació. En tot cas, realitzem el test de la chi-quadrat i ho comprovem:
+
+```{r}
+
+chisq.test(table(df$f.marital,df$f.hpw))
+
+```
+
+Efectivament, el p-value és ínfim i novament la hipòtesi nula queda rebutjada.
+
 
 # MCA
 
 ```{r}
 res.mca1<-MCA(df[,c(13,22,15:23,10)],quanti.sup=1,quali.sup = 2:3)
-
 res.mca1$eig
 colors<-c("Blue","Orange")
 barplot(res.mca1$eig[,3], col= colors[ifelse(res.mca1$eig[,3] < 81, 1, 2)])
 abline(h=80,col="red",lty=2)
-
 summary(res.mca1,nbind=0,nbelements = 5, ncp=12 )
 dimdesc(res.mca1,prob=0.01)
-
 ```
 Per el MCA seguint el criteri estudiat a clase, hauriem d'agafar fins a 15 dimensions que són aquelles que donen una explicabilitat d'un 80% de les variables per a tenir un bon model.
 
@@ -328,7 +376,6 @@ També veiem que les hr.per.week esta negativament relaciont amb la dimensió 1.
 
 ## Individual point of view:
 ```{r}
-
 plot(res.mca1,choix="ind",select="contrib 10",cex=0.5)
 ```
 No podem tenir una gran apreciació de les variables més contributibes així que farem un anàlisis per les diferents Dimensions a estudiar.
@@ -372,15 +419,10 @@ Com podem veure tenim que les categories extranyes són la f.education, i la edu
 ## Interpreting the axes
 ```{r}
 out<-dimdesc(res.mca1)
-
 out$`Dim 1`$quanti
 out$`Dim 1`$quali
-
-
 out$`Dim 2`$quanti
 out$`Dim 2`$quali
-
-
 out$`Dim 3`$quanti
 out$`Dim 3`$quali
 ```
@@ -394,9 +436,16 @@ Finalment per la dimensió 3 que esta poc relacionada negativament amb el target
 
 # Hierarchical Clustering (MCA)
 
+```{r}
+num.clusters <- 5
+#obtenim que el nombre de clusters es de 5.
 
+res.hc<-HCPC(res.mca1,nb.clust = num.clusters)
+res.hc$desc.var$quanti
 
+res.hcpc$desc.var$quanti
+```
 
-
+Respecte als clusters fets i analitzats comparantlos amb els obtinguts en el PCA, si ens centrem en el hr.per.week veiem que els grups que ha fet al fer-ho amb el MCA, no són tant distants als que havia fet anteriorment. Peró si que veiem més clarament una separació horaria. per exemple els primers dos clusters la majoria de gent, són persones que tendeixen a tenir grans quantitats d'hores de feina, mentres que els altres no.
 
 
