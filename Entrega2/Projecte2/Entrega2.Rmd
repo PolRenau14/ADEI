@@ -1,0 +1,342 @@
+---
+title: "Entrega2"
+author: "Pol Renau Miguel Angel Merino"
+date: \today
+output:
+  html_document:
+    toc: no
+    toc_depth: '4'
+  pdf_document:
+    latex_engine: pdflatex
+    number_sections: yes
+    toc_depth: 4
+    toc: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 12pt
+subtitle: 'PCA, CA and Clustering'
+editor_options:
+  chunk_output_type: console
+---
+
+# Carregar les dades
+
+Carreguem les dades a analitzar, que ja han sigut processades a la Entrega 1 per a poder fer ara un anàlisi consistent. Separem també les variables continues de les discretes per facilitar-ne l'ús posteriorment.
+
+```{r}
+
+load("mostra2.RData")
+
+df$f.hpw<- factor(df$f.hpw)
+df$f.educationNum <- factor(df$f.educationNum)
+
+vars_con<-names(df)[c(3,5,11:13,24)];vars_con
+vars_dis<-names(df)[c(7,9,10,15:23)];vars_dis
+
+```
+
+
+# Carregar els paquets
+
+Carregarem tots els paquets necessaris per utilitzar al llarg de la pràctica.
+
+```{r}
+options(contrasts=c("contr.treatment","contr.treatment"))
+
+requiredPackages <- c("FactoMineR", "car", "factoextra", "NbClust", "knitr")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+
+lapply(requiredPackages, require, character.only = TRUE)
+
+```
+
+
+# Anàlisi PCA
+
+Inicialment comencem amb l'anàlisi de components principals. En primer lloc farem l'ànalisi sobre un PCA simple sense tenir en compte variables suplementàries i posteriorment sí que les tindrem en compte. Comencem:
+
+```{r}
+
+res.pca <- PCA(df[,vars_con])
+
+```
+Com sabem, aquelles variables que tenen un angle de 90 graus o 270 aproximadament, depenent de com tinguem en compte la direcció, no estan relacionades.
+
+Donant una primera ullada al PCA obtingut, veiem que per exemple hr.per.week i el capital loss estan molt poc relacionades. Mentre que podem veure que el education num i el hr.per.week estan bastant relacionada, ja que tenen direccions molt semblants. Es a dir que podriem dir que aquestes variables, a simple vista són grans candidates a estar relacionades positivament entre elles.
+
+D'altre banda veiem que el i.rank esta inversament relacionat amb les hr.per.week, amb això podriem deduïr, que les persones que treballen més hores, tendeixen a no tenir errors en les enquestes ni a deixar preguntes en blanc.
+
+## Anàlisi dels \textit{eigenvalues} i eixos dominants
+
+Dins els resultats del PCA, recollim els \textit{eigenvalues} i el percentatge explicat per cada dimensió. 
+
+```{r}
+
+summary(res.pca,nb.dec=2,nbelements = Inf,nbind = 0)
+
+colors<-c("Blue", "orange")
+barplot(res.pca$eig[,1], col = colors[ifelse(res.pca$eig[,1] >= 1 , 1,2)])
+abline(h=1, col = "red", lty=2)
+
+```
+
+Recordem que el \textbf{criteri de Kaiser} ens establia les dimensións rellevants com aquelles que tenien una variança major a 1.0. En aquest cas, podem observar que les dimensions que ens interessen son les \textbf{tres primeres}. És interessant veure que aquestes tres dimensions juntes expliquen un 57.07% de la \textit{intertia}.
+
+```{r}
+
+barplot(res.pca$eig[,3],col= colors[ifelse(res.pca$eig[,3] < 80, 1, 2)])
+abline(h=80,col="red",lty=2)
+
+```
+
+D'altra banda, veiem que en relació al \textbf{criteri d'Elbow} que el que ens diu és que recollim com a dimensións rellevants aquelles que arribin a explicar el 80% de la variança. En aquest cas, veiem que hauriem d'agafar les primeres 5 dimensións que expliquen el 87.07%, ja que amb 4 dimensións només arribariem al 73.14%.
+
+
+## Anàlisi dels individus
+
+A continuació realitzarem un anàlisi des del punt de vista dels individus. Voldrem veure quins d'aquest són els més contributius, és a dir, quins es situarán més als extrems del plot. Concretament destacarem els 10 més contributius, i ressaltarem també en quin valor ho fan.
+
+```{r}
+
+plot(res.pca,choix="ind",select="contrib 10",cex=0.5)
+
+```
+
+## Interpretació dels eixos
+
+Seguidament, farem un anàlisi dels eixos. Per a decidir quins analitzarem, ens decantarem pel criteri de Kaiser i per tan realitzarem aquest anàlisi sobre els 3 primers.
+
+```{r}
+
+#Dim 1
+Boxplot(res.pca$ind$contrib[,1])
+rang1<-order(res.pca$ind$contrib[,1],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+df[rang1[1:10],c(vars_con,vars_dis)]
+
+
+#Dim 2
+Boxplot(res.pca$ind$contrib[,2])
+rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+df[rang1[1:10],c(vars_con,vars_dis)]
+#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+#df[ll,c(vars_con,vars_dis)]
+
+#Dim 3
+Boxplot(res.pca$ind$contrib[,3])
+rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+df[rang1[1:10],c(vars_con,vars_dis)]
+#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+#df[ll,c(vars_con,vars_dis)]
+
+```
+
+
+## Anàlisi PCA amb variables suplementaries
+
+Finalment repetirem el PCA realitzat amb anterioritat però aquest cop utilitzant variables suplementaries. Aquestes variables són aquelles que no tenen influéncia en l'anàlisi de components principals i ens ajudaràn a poder interpretar millor les dimensións de la variablitat.
+
+En el nostre cas, com a variables suplementaries qualitatives hem agafat:
+\begin{itemize}
+\item hr.per.week
+\end{itemize}
+
+I com a suplementaries quantitatives:
+\begin{itemize}
+\item y.bin
+\item f.type
+\item f.marital
+\item sex
+\item f.education
+\item f.continent
+\item f.benefici
+\item f.age
+\item f.hpw
+\item f.educationNum
+\end{itemize}
+
+La selecció ha estat aquesta perque considerem que compleixen el rol de variables complementaries i així aconseguirem fer un anàlisi millor del PCA.
+
+```{r}
+res.pca <- PCA(df[,c(1,3,5,11:13,15:23)], quanti.sup=6,quali.sup =  7:15)
+names(df[,c(1,3,5,11:13,15:24)])
+summary(res.pca,nb.dec=2,nbelements = Inf,nbind = 0)
+
+barplot(res.pca$eig[,1], col = colors[ifelse(res.pca$eig[,1] >= 1 , 1,2)])
+abline(h=1, col = "red", lty=2)
+
+```
+
+Podem observar que el nombre de dimensión a seleccionar amb el criteri de Kaiser és 3, el mateix que amb l'anàlisi de components principals sense variables suplementàries. En aquest cas s'explica un 66.16% de la variança.
+
+```{r}
+
+barplot(res.pca$eig[,3],col= colors[ifelse(res.pca$eig[,3] < 85, 1, 2)])
+abline(h=80,col="red",lty=2)
+
+```
+
+En canvi, recordem que anteriorment amb el criteri d'Elbow seleccionavem les 5 primeres dimensións, i ara seleccionem les 4 primeres, que arriben a explicar un 84.52% de la variança.
+
+Ara analitzem els individus més contributius.
+
+```{r}
+
+plot(res.pca,choix="ind",select="contrib 10",cex=0.5)
+
+```
+
+Veiem que com a diferència amb l'anàlisi anterior, tenim que ara tots els elemens més contributius els tenim situats a l'extrem del quadrant inferior dret, mentre que abans els teniem al quadrant dret pero distribuïts entre el superior i l'inferior.
+
+Pel que fa a l'analisi de les dimensións, on seguim amb les tres primeres dimensións pel criteri de Kaiser, tenim:
+
+```{r}
+
+#Dim 1
+Boxplot(res.pca$ind$contrib[,1])
+rang1<-order(res.pca$ind$contrib[,1],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+#Aquest pas no l'entenc
+#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+#df[ll,c(vars_con,vars_dis)]
+
+#Dim 2
+Boxplot(res.pca$ind$contrib[,2])
+rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+#df[ll,c(vars_con,vars_dis)]
+
+#Dim 3
+Boxplot(res.pca$ind$contrib[,3])
+rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
+#df[ll,c(vars_con,vars_dis)]
+
+```
+
+# Definir el nombre de Clusters
+
+Abans de començar a executar Kmeans i Hierarchical Clustering, hem de definir quants clusters volem usar per aquests.
+```{r}
+fviz_nbclust(res.pca$ind$coord[,1:3], kmeans, method = "silhouette") +
+  labs(subtitle = "Silhouette method")
+```
+Hem seguit el criteri de Silhouette, que ens escolleix aquells clusters que siguin millor per tenir menor distàncies dins del cluster, i maximitzar distàncies entre diferents clusters.
+Com podem veure a la gràfica, el valor òptim de clusters és 5, ja que és el que te un average silhouette width més elevat. 
+```{r}
+num.clusters<-5
+```
+
+
+# K-Means Classification
+
+```{r}
+
+data.kmeans <- res.pca$ind$coord[,1:3]
+kmeans.res <- kmeans(data.kmeans,num.clusters)
+kmeans.res$centers
+```
+
+A continuació explicarem el resultat dels centres dels clusters obtinguts, ja que amb Kmeans, els centres són aquells que donen major explicailitat al cluster.
+
+\begin{itemize}
+\item Centre 1:
+    Com veiem aquest centre te una gran relació positiva amb les dimensions 1 i 3, mentre que bastant negativa amb el que representa la dimensió 2. Per tant podem conclure que els individus que estiguin en aquest cluster, tindran molt en comú amb les variables que donen major explicabilitat positiva a les dimensions 1 i 3, mentre que tindràn gran representació amb aquelles que siguin negatives o inverses a la dimensió 2.
+    
+\item Centre 2:
+    Aquest centre te una relació negativa amb la dimensió 1 bastant significativa, no tant amb la tercera dimensió pero és positiva aquesta relació. Mentre que els integrants d'aquest grup, majoritariament no tenen gran relació amb la segona dimensió.
+  
+\item Centre 3:
+    Aquest grup esta fortament relacionat de forma postitiva amb les dimensions 1 i 2, com podem veure, no obstant veiem que la 3 dimensió no te una gran aportació en la descripció d'aquest grup.
+    
+\item Centre 4:
+  Aquest grup te una significativa relació negativa amb la 3ª dimensió, no obstant veiem que les altres dues no són tant rellevants, veiem que la 2ª potser te una mica de relació negativa, però sembla que no és tant significatiu com la dimensió 3.
+  
+\item Centre 5:
+  Aquest grup no sembla tenir una gran relació amb cap de les dimensions, pero veiem que la relació amb la primera dimensió és la més significativa.
+\end{itemize}
+
+A continuació mostrarem de manera gràfica el que hem explicat anteriorment.
+
+```{r}
+fviz_cluster(kmeans.res, data = data.kmeans[,1:2])
+fviz_cluster(kmeans.res, data = data.kmeans[,1:3])
+fviz_cluster(kmeans.res, data = data.kmeans[,2:3])
+```
+
+# Hierarchical Clustering
+
+```{r}
+res.hcpc<-HCPC(res.pca,nb.clust=num.clusters,graph=T) 
+output<-res.hcpc$desc.var; 
+output$quanti
+```
+
+## Descripció dels clusters
+### Cluster 1:
+ Tenen un capital.gain bastant per sota de la mitjana global.
+ Tenen un capital.loss molt petit o practicament inexistent
+  \-> Aquest grup la majoria no  tenen  capital.loss i tenen un capital gain positiu majoritariament
+      però distant de la mitjana( no tenen inversions de gran Capital)
+ Treballen menys hores de la mitjana, però poc distant unes 38 hores
+ Aquest grup tenen una edad bastant més jove ( mitjana de 27 anys)
+Cluster 2:
+  L'edat d'aquest grup es bastant superior a la mitja global ( 51 anys) 
+  En aquest cluster majoritariament tindrem a les persones d'edat superior.
+  Igual que al primer clusten en quan al capital gain i capital loss
+  Aquest grup te menys hores d'estudi que la mitjana.
+  
+#### Cluster 3:
+  Aquest cluster són dels que tenen major hores invertides en educació, i estan per sobre de la mirjana
+  En quan a les hores treballades també estan en mitjana significativament per sobre de la global, però tampoc molt
+  No tenen practicament capital loss, i tenen un capital gain bastant reduït respecte la mitjana
+  Les edats són bastant properes a la mitjana global. (Mitjana edat segurament)
+  
+### Cluster 4:
+  Aquest grup te un capital loss bastant significant respecte a la mitjana (1921).
+  No tenen capitalgain, es a dir que són un grup que les inversions
+  que tenen són perdudes.
+  En quan a les hores invertides en educació, són superiors a la mitjana però no 
+  molt significatiu.
+  Les hores treballades properes a les 42 per setmana fins a 2 hores lluny de la mitjana
+
+### Cluster 5:
+  Aquest grup tenen inversions de capital gain bastant bones, i no en tenen de negatives
+  Estan en quan a anys d'estudi semblants al cluster 4.
+  I l'edat es també aproximadament mitjana edat. ( molt proper a la mitjana 44)
+
+
+# MCA
+
+```{r}
+res.mca1<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3)
+
+res.mca1$eig
+
+
+summary(res.mca1,nbind=0,nbelements = 30, ncp=12 )
+dimdesc(res.mca1,prob=0.01)
+
+```
+
+## MCA performed
+```{r}
+
+res.mca2<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3,ncp=12) 
+```
+
+# Hierarchical Clustering (MCA)
+
+s
+
+
+
+
+

@@ -33,6 +33,7 @@ summary(res.pca,nb.dec=2,nbelements = Inf,nbind = 0)
 # per Elbow no se si ha de ser aquell que directament expliqui 80% primer,
 #o bé el anterior que expliqui el 80%, si es així coincideix amb Kaiser.
 
+colors<-c("Blue","orange")
 
 #Kaiser
 barplot(res.pca$eig[,1], col = colors[ifelse(res.pca$eig[,1] >= 1 , 1,2)])
