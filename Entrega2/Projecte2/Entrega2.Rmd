@@ -123,16 +123,12 @@ Boxplot(res.pca$ind$contrib[,2])
 rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
 df[rang1[1:10],c(vars_con,vars_dis)]
-#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
-#df[ll,c(vars_con,vars_dis)]
 
 #Dim 3
 Boxplot(res.pca$ind$contrib[,3])
 rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
 df[rang1[1:10],c(vars_con,vars_dis)]
-#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
-#df[ll,c(vars_con,vars_dis)]
 
 ```
 
@@ -197,27 +193,26 @@ Pel que fa a l'analisi de les dimensións, on seguim amb les tres primeres dimen
 
 ```{r}
 
+
 #Dim 1
 Boxplot(res.pca$ind$contrib[,1])
 rang1<-order(res.pca$ind$contrib[,1],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-#Aquest pas no l'entenc
-#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
-#df[ll,c(vars_con,vars_dis)]
+df[rang1[1:10],c(vars_con,vars_dis)]
+
 
 #Dim 2
 Boxplot(res.pca$ind$contrib[,2])
 rang1<-order(res.pca$ind$contrib[,2],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
-#df[ll,c(vars_con,vars_dis)]
+df[rang1[1:10],c(vars_con,vars_dis)]
 
 #Dim 3
 Boxplot(res.pca$ind$contrib[,3])
 rang1<-order(res.pca$ind$contrib[,3],decreasing = T); rang1[1:10]
 rownames(df[rang1[1:10],])
-#ll<-which(res.pca$ind$coord[,2]<(-5));length(ll)
-#df[ll,c(vars_con,vars_dis)]
+df[rang1[1:10],c(vars_con,vars_dis)]
+
 
 ```
 
@@ -316,25 +311,90 @@ Cluster 2:
 # MCA
 
 ```{r}
-res.mca1<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3)
+res.mca1<-MCA(df[,c(13,22,15:23,10)],quanti.sup=1,quali.sup = 2:3)
 
 res.mca1$eig
+colors<-c("Blue","Orange")
+barplot(res.mca1$eig[,3], col= colors[ifelse(res.mca1$eig[,3] < 81, 1, 2)])
+abline(h=80,col="red",lty=2)
 
-
-summary(res.mca1,nbind=0,nbelements = 30, ncp=12 )
+summary(res.mca1,nbind=0,nbelements = 5, ncp=12 )
 dimdesc(res.mca1,prob=0.01)
 
 ```
+Per el MCA seguint el criteri estudiat a clase, hauriem d'agafar fins a 15 dimensions que són aquelles que donen una explicabilitat d'un 80% de les variables per a tenir un bon model.
 
-## MCA performed
+També veiem que les hr.per.week esta negativament relaciont amb la dimensió 1.
+
+## Individual point of view:
 ```{r}
 
-res.mca2<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3,ncp=12) 
+plot(res.mca1,choix="ind",select="contrib 10",cex=0.5)
 ```
+No podem tenir una gran apreciació de les variables més contributibes així que farem un anàlisis per les diferents Dimensions a estudiar.
+
+```{r}
+#Dim 1
+Boxplot(res.mca1$ind$contrib[,1])
+rang1<-order(res.mca1$ind$contrib[,1],decreasing = T); rang1[1:10]
+rownames(df[rang1[1:10],])
+df[rang1[1:10],c(vars_con,vars_dis)]
+```
+En la primera dimensió veiem que tenim que els individus més contributius d'aquesta dimensió són bastant joves, i tendeixen a treballar poques hores a la setmana. També podem veure que són aquells que tenen meys anys dedicats a la educació, ja que no tenen tituls superiors o universitaris. També ens ha soptat veure que tots els individus de gran contribució en aquesta dimensió són dones.
+
+```{r}
+#Dim 2
+Boxplot(res.mca1$ind$contrib[,2])
+rang2<-order(res.mca1$ind$contrib[,2],decreasing = T); rang1[1:10]
+rownames(df[rang2[1:10],])
+df[rang2[1:10],c(vars_con,vars_dis)]
+```
+En Aquesta dimensió els que destaquen a major escala són homes blancs d'edat més gran, que estan casats, que han invertit pocs anys en la seva educació i que en conseqüéncia no tenen una titulació superior. 
+
+```{r}
+#Dim 3
+Boxplot(res.mca1$ind$contrib[,3])
+rang3<-order(res.mca1$ind$contrib[,3],decreasing = T); rang1[1:10]
+rownames(df[rang3[1:10],])
+df[rang3[1:10],c(vars_con,vars_dis)]
+```
+En aquesta dimensió no podem donar una gran explicabilitat de les variables. Ja que no tenen gaire relació entre elles.
+
+Finalment podem conclure que els individus que contribueixen més a les dades són persones o bé molt joves, o bé persones d'abançada edat, que de retruc han invertit pocs anys en la seva educació.
+
+```{r}
+fviz_mca_var(res.mca1, choice = "mca.cor", 
+            repel = TRUE, #
+            ggtheme = theme_minimal())
+```
+Com podem veure tenim que les categories extranyes són la f.education, i la educationNum, es a dir que veiem que la educació es bastant contributiu alhora de decidir.
+
+## Interpreting the axes
+```{r}
+out<-dimdesc(res.mca1)
+
+out$`Dim 1`$quanti
+out$`Dim 1`$quali
+
+
+out$`Dim 2`$quanti
+out$`Dim 2`$quali
+
+
+out$`Dim 3`$quanti
+out$`Dim 3`$quali
+```
+
+Veiem que la dimensió 1 com hem dit anteirorment esta negativament relacionada amb les hr.per.week, també que amb els factors que te major relació són el education i educationNum, tot i que la edat i l'estat civil també semblen estar relacionats però no a tant gran escala.
+
+Per la dimensió 2 veiem que ten una certa relació positiva tot i que no molt significant amb la vairable hr.per.week. Un altre cop veiem que les variables més explicatives d'aquestes són els anys d'educació.
+
+Finalment per la dimensió 3 que esta poc relacionada negativament amb el target, tenim que les variables més explicatives per ella, són l'estat civil i l'edat dels individus.
+
 
 # Hierarchical Clustering (MCA)
 
-s
+
 
 
 

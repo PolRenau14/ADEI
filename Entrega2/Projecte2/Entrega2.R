@@ -252,21 +252,20 @@ plot.CA(res.ca1.selectCol="contrib 2",invisible="row")
 #oblidem els originals factors amb moltes categories
 names(df)
 #també afegim el sexe. quantitativa el hores per week
-res.mca1<-MCA(df[,c(13,22,15:21,10)],quanti.sup=1,quali.sup = 2:3)
+res.mca1<-MCA(df[,c(13,22,15:23,10)],quanti.sup=1,quali.sup = 2:3)
 #hr.per setmana esta relaconat possitvament amb la primera dimensió
 #nombre total de categories dels factors que són actius
 #També veiem que no esta molt relacionat amb la dim 2, però també esta relacionat de manera
 #negativa respecte la dim 2
 
 res.mca1$eig
-
-#veiem que amb 12 dimensions tenim prop d'un 80% de l'explicabilitat de les dades (79,46%)
+#veiem que amb 16 dimensions tenim prop d'un 80% de l'explicabilitat de les dades (80.63%)
 
 
 #sortida no grafica
 summary(res.mca1,nbind=0,nbelements = 30, ncp=12 )
-dimdesc(res.mca1,prob=0.01, axes= 1:2)
-#Perque tot i que dona 12 dimensions,  al posar ncp = 12 no va.
+dimdesc(res.mca1,prob=0.01, axes= 1:12)
+#Perque tot i que dona 16 dimensions,  al posar ncp = 12 no va.
 # Tampoc entenc perque el dimdesc només ens dona 3 dim com a màxim.
 
 
@@ -275,6 +274,7 @@ dimdesc(res.mca1,prob=0.01, axes= 1:2)
 
 #Aquesta vaina no ens funciona. haurem de veure com arreglarho
 plot.MCA(res.mca1,invisible=c("ind","var","quati.sup"))
+
 aux<-res.mca1$quali.sup$coord[2:5,1]
 aux<-aux +res.mca1$quali.sup$coord[1,1]
 lines(aux,col="darkgreen",lwd=2)
