@@ -1,0 +1,147 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+Title   Laboratory Session: Simple Linear Regression
+========================================================
+
+## Dataset A
+```{r}
+library(car)
+summary(anscombe)
+
+rm(list=ls())
+
+# Dataset A
+
+par(mfrow=c(1,1))
+
+ma<-lm(YA~XA,data=anscombe)  # linear model object class: ma
+summary(ma)
+plot(anscombe$XA,anscombe$YA)
+plot(anscombe$XA,anscombe$YA,col="black",pch=19,main="Dataset A")
+ma<-lm(YA~XA,data=anscombe)
+
+fitted.values(ma)
+cbind(anscombe$XA,fitted.values(ma))
+lines(anscombe$XA,fitted.values(ma),col="black",lwd=2,lty=2)
+text(anscombe$XA,anscombe$YA,col="black",labels=row.names(anscombe),adj=-1) # Label to each obs.
+
+# Diagnostics
+residuals(ma)
+# residuals vs fitted.values
+
+par(mfrow=c(2,2))
+plot(ma,id.n=0) # Default diagnostics for ma
+par(mfrow=c(1,1))
+
+
+
+```
+
+## Dataset B
+
+```{r}
+par(mfrow=c(1,1))
+
+mb<-lm(YB~XB,data=anscombe)  # linear model object class: mb
+summary(mb)
+plot(anscombe$XB,anscombe$YB,col="red",pch=19,main="Dataset B")
+lines(anscombe$XB,fitted.values(mb),col="red",lwd=2,lty=2)
+text(anscombe$XB,anscombe$YB,col="red",labels=row.names(anscombe),adj=-1) # Label to each obs.
+
+# Diagnostics
+# residuals vs fitted.values
+
+par(mfrow=c(2,2))
+plot(mb,id.n=0) # Default diagnostics for mb
+par(mfrow=c(1,1))
+# Solution
+
+mb2<-lm(YB~XB+I(XB^2),data=anscombe)  # linear model object class: mb2
+summary(mb2)
+```
+
+
+## Dataset C
+
+```{r}
+par(mfrow=c(1,1))
+
+mc<-lm(YC~XC,data=anscombe)  # linear model object class: mc
+summary(mc)
+plot(anscombe$XC,anscombe$YC,col="green",pch=19,main="Dataset C")
+lines(anscombe$XC,fitted.values(mc),col="green",lwd=2,lty=2)
+text(anscombe$XC,anscombe$YC,col="green",labels=row.names(anscombe),adj=-1) # Label to each obs.
+
+# Diagnostics
+# residuals vs fitted.values
+
+par(mfrow=c(2,2))
+plot(mc,id.n=0) # Default diagnostics for mc
+par(mfrow=c(1,1))
+
+# Solution
+
+mc2<-lm(YC~XC,data=anscombe[-3,])  # linear model object class: mc2
+summary(mc2)
+
+plot(anscombe$XC,anscombe$YC,col="green",pch=19,main="Dataset C")
+lines(anscombe$XC,fitted.values(mc),col="green",lwd=2,lty=2)
+text(anscombe$XC,anscombe$YC,col="green",labels=row.names(anscombe),adj=-1) # Label to each obs.
+lines(anscombe$XC[-3],fitted.values(mc2),col="cyan",lwd=2,lty=2)
+
+# Alternatives for diagnostics
+library(car)
+Boxplot(residuals(mc))
+
+# Influent data statistic: Cook's distance
+cooks.distance(mc)
+Boxplot(cooks.distance(mc))  # 3 influent data
+
+```
+
+## Dataset D
+
+```{r}
+par(mfrow=c(1,1))
+
+md<-lm(YD~XD,data=anscombe)  # linear model object class: md
+summary(md)
+plot(anscombe$XD,anscombe$YD,col="blue",pch=19,main="Dataset D")
+lines(anscombe$XD,fitted.values(md),col="blue",lwd=2,lty=2)
+text(anscombe$XD,anscombe$YD,col="blue",labels=row.names(anscombe),adj=-1) # Label to each obs.
+
+# Diagnostics
+# residuals vs fitted.values
+
+par(mfrow=c(2,2))
+plot(md,id.n=0) # Default diagnostics for mc
+par(mfrow=c(1,1))
+
+cooks.distance(md)  # 8 influent data - no residual outlier
+# Solution
+
+md2<-lm(YD~XD,data=anscombe[-8,])  # linear model object class: md2
+summary(md2)
+
+# Diagonal Hat Matrix
+hatvalues(md)
+
+```
+
+## Fisher Test
+
+```{r}
+mb<-lm(YB~XB,data=anscombe)  # linear model object class: mb
+summary(mb)
+mb2<-lm(YB~XB+I(XB^2),data=anscombe)  # linear model object class: mb2
+summary(mb2)
+
+## M-Gran mb2   m-Petit mb - Petit nested in Gran
+# H0: (m) equivalent to (M)
+anova(mb,mb2)
+
+```
+

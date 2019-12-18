@@ -1,0 +1,182 @@
+---
+title: "Session 9: Bank Marketing - MULTIPLE REGRESSION ANALYSIS"
+author: "Lidia Montero"
+date: "May 2019"
+output: 
+  html_document: 
+    toc: true
+    toc_depth: 3
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+# Bank client data
+
+## Description 
+
+*Input variables:*
+
+  1. age (numeric)
+  2. job : type of job (categorical: 'admin.','blue-collar','entrepreneur','housemaid','management','retired','self-employed','services','student','technician','unemployed','unknown')
+  3. marital : marital status (categorical: 'divorced','married','single','unknown'; note: 'divorced' means divorced or widowed)
+  4. education (categorical:'basic.4y','basic.6y','basic.9y','high.school','illiterate','professional.course','university.degree','unknown')
+  5. default: has credit in default? (categorical: 'no','yes','unknown')
+  6. housing: has housing loan? (categorical: 'no','yes','unknown')
+  7. loan: has personal loan? (categorical: 'no','yes','unknown')# related with the last contact of the current campaign:
+  8. contact: contact communication type (categorical:'cellular','telephone')
+  9. month: last contact month of year (categorical: 'jan', 'feb', 'mar',..., 'nov', 'dec')
+  10. day_of_week: last contact day of the week (categorical:'mon','tue','wed','thu','fri')
+  11. duration: last contact duration, in seconds (numeric). Important note: this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model.
+  12. campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)
+  13. pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric; 999 means client was not previously contacted)
+  14. previous: number of contacts performed before this campaign and for this client (numeric)
+  15. poutcome: outcome of the previous marketing campaign (categorical: 'failure','nonexistent','success')# social and economic context attributes
+  16. emp.var.rate: employment variation rate - quarterly indicator (numeric)
+  17. cons.price.idx: consumer price index - monthly indicator (numeric)
+  18. cons.conf.idx: consumer confidence index - monthly indicator (numeric)
+  19. euribor3m: euribor 3 month rate - daily indicator (numeric)
+  20. nr.employed: number of employees - quarterly indicator (numeric)
+  21. y - has the client subscribed a term deposit? (binary: 'yes','no')
+
+```{r}
+# Load Required Packages: to be increased over the course
+
+requiredPackages <- c("mvoutlier","chemometrics","mice","missForest","missMDA","DMwR","pbkrtest","jomo","readxl","haven","sf","rgdal","effects","FactoMineR","car","factoextra","RColorBrewer","ggplot2","dplyr","data.table", "ggmap","ggthemes","knitr","MVA","car")
+missingPackages <- requiredPackages[!(requiredPackages %in% as.vector(installed.packages(lib.loc="~/R/win-library/3.5")[,"Package"]))]
+
+#if(length(missingPackages)) install.packages(missingPackages)
+#install.packages(requiredPackages,dependencies = TRUE,repos = c("http://rstudio.org/_packages","http://cran.rstudio.com"))
+lapply(requiredPackages, require, character.only = TRUE)
+
+```
+
+## Load your sample of 5000 records already cleaned and with all variables properly coded
+
+```{r}
+rm(list=ls())
+# Load Required Packages: to be increased over the course
+
+#setwd("C:/Users/lmontero/Dropbox/DOCENCIA/FIB-ADEI/PRACTICA/BankMarketing")
+setwd("D:/DOCENCIA/FIB-ADEI/PRACTICA/BankMarketing/LABS")
+#file_path <- "D:/Dropbox/DOCENCIA/FIB-ADEI/PRACTICA/BankMarketing/" 
+load("MyBank5000.RData")
+summary(df)
+```
+
+# Explanatory numeric variables
+
+## Initial modelling
+
+```{r}
+# Guillem - 
+vars_con
+#vars_con<-names(df)[c(1,12:14,16:20)]
+m1<-lm(duration~.,data=df[,c("duration",vars_con)])
+summary(m1)
+
+# Inferential criteria o Bayesian info criteria
+# Remove non significant variables
+library(car)
+Anova(m1)  # Mètode testar els efectes nets
+m2<-lm(duration~campaign+pdays+previous+emp.var.rate+nr.employed,data=df)
+Anova(m2)  # Test de Fisher
+# Akaike or BIC
+m3<-step(m1)  # AIC
+m4<-step(m1,k=log(nrow(df))) # BIC Large data sets
+
+# Alternativa no Guillem - Recomanable quan hi ha moltes variables
+
+# Usa condes()
+names(df)
+condes(df,11)
+#  previous+emp.var.rate+euribor3m+campaign+pdays+nr.employed
+
+m5<-lm(duration~previous+emp.var.rate+euribor3m+campaign+pdays+nr.employed,data=df)
+Anova(m5) # euribor3m net effect non significant
+m6<-lm(duration~previous+emp.var.rate+campaign+pdays+nr.employed,data=df)
+Anova(m6) 
+
+# BIC
+m7<-step(m5,k=log(nrow(df)))
+
+# Both results m4 and m7 are equal (in my case)
+vif(m7)
+
+```
+
+## Transforming variables
+
+```{r}
+par(mfrow=c(2,2))
+plot(m7)
+par(mfrow=c(1,1))
+
+# Box-Cox Transformation of Y - log(Y)
+library(MASS)
+boxcox(m7,data=df)  # lambda 0 -> log(Y)
+
+m8<-lm(log(duration)~previous+emp.var.rate+euribor3m+campaign+pdays+nr.employed,data=df)
+Anova(m8) # euribor3m, previous net effects non significant
+m9<-lm(log(duration)~emp.var.rate+campaign+pdays+nr.employed,data=df)
+Anova(m9) 
+
+# BIC
+m10<-step(m8,k=log(nrow(df)))
+
+# emp.var.rate and nr.employed are showing large colinearity
+vif(m10) # vif >3 dangerous -> colinearity
+
+m11<-lm(log(duration)~emp.var.rate+campaign+pdays,data=df)
+summary(m11)
+
+# Polinomic regression
+
+m20<-lm(log(duration)~poly(emp.var.rate,2)+poly(campaign,2)+poly(pdays,2),data=df)
+summary(m20)
+Anova(m20)
+marginalModelPlots(m11)
+
+```
+
+###
+
+```{r}
+m21<-lm(log(duration)~poly(emp.var.rate,3),data=df)
+summary(m21)
+Anova(m21)
+
+m21<-lm(log(duration)~emp.var.rate+I(emp.var.rate^2)+I(emp.var.rate^3),data=df)
+summary(m21)
+```
+
+## Exemple
+
+```{r}
+
+m1<-lm(prestige~income+education+type,data=Prestige)
+scatter3d(prestige~income+education|type,data=Prestige)
+summary(m1)
+vif(m1)
+
+m2<-lm(prestige~poly(income,2)+poly(education,2)+type,data=Prestige)
+summary(m2)
+Anova(m2)
+anova(m1,m2)
+
+m3<-lm(prestige~poly(income,2)+education+type,data=Prestige)
+summary(m3)
+Anova(m3)
+anova(m1,m3)
+anova(m3,m2)
+
+par(mfrow=c(2,2))
+plot(m3,id.n=0)
+par(mfrow=c(1,1))
+
+residualPlots(m3)
+marginalModelPlots(m3)
+
+influencePlot(m3)
+
+```
+
