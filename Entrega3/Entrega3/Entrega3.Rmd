@@ -1,0 +1,248 @@
+---
+title: "Entrega2"
+author: "Pol Renau Miguel Angel Merino"
+date: \today
+output:
+  word_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    toc: no
+    toc_depth: '4'
+  pdf_document:
+    latex_engine: pdflatex
+    number_sections: yes
+    toc_depth: 4
+    toc: yes
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 12pt
+subtitle: 'Numeric and Binary targets Forecasting Models'
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r}
+install.packages(c("car", "rgl"))
+install.packages("cran")
+library(car)
+library(rgl)
+library(effects)
+install.packages(c("ROCR"))
+library(ROCR)
+install.packages(("FactoMineR"))
+library(FactoMineR)
+```
+
+```{r}
+
+
+load("mostra2.RData")
+```
+
+# Binary/Logistic Regression Models with Binary target
+
+```{r}
+# Split dataframe in test and work dataframes
+set.seed(14121997)
+ll<-sample(1:nrow(df),nrow(df)*0.80)
+ll<-order(ll)
+dfwork<-df[ll,]
+dftest<-df[-ll,]
+
+```
+
+```{r}
+names(df)
+vars_exp<-c("age","education.num","capital.gain","capital.loss","hr.per.week")
+
+vars_edisc<-names(dfwork)[c(7:10,16:19)]; vars_edisc
+
+```
+
+```{r}
+
+catdes(dfwork[,c("y.bin",vars_exp)],1)
+```
+Segons el catdes obtingut, veiem que totes les variables tenen un p valor inferior a 0.05, per tant seguint el criteri de catdes, deixem totes les variables com a rellevants per començar a modelar. També podem observar que les més rellevants són education.num i darrerament la segueix capital gain.
+
+
+## Construncció d'un primer model (només numèric)
+```{r}
+m1<-glm(y.bin~.,family =binomial,data=dfwork[,c("y.bin",vars_exp)] )
+summary(m1)
+
+Anova(m1,test="LR") # afegim el LR (CHIsq) ja que es un model generalitzat
+#totes es variables tenen uns efectes nets significatius
+m2<-step(m1, k = log(nrow(dfwork))) # PEr el bBIC utilitzem la K, usant el log
+#Veiem que totes són rellavants
+```
+Tot i que amb el catdes ja haviem vist que totes eren rellevants, hem fet un model que usi totes les variables numèriques, i també hem confirmat que totes són necesàries. 
+```{r}
+marginalModelPlots(m1)
+```
+Com podem apreciar en el marginal model plots, totes les variables numèriques s'adapten de forma adeqüada a excepció de la variable explicativa edat. S'intueix una forma polinomica quadrada, per tant ho probarem a continuació.
+
+```{r}
+m2<- glm(y.bin~poly(age,2)+education.num+capital.gain+capital.loss+hr.per.week,family = binomial, data = dfwork)
+marginalModelPlots(m2)
+```
+Veiem amb els plots marginals, que hi ha una millor adaptació d'aquesta manera. 
+A continuació comprobarem quin dels dos models que hem calculat de moment és millor.
+```{r}
+
+anova(m1,m2,test="Chisq")
+```
+Com que el p-valor es inferior a 0.05, rebutjem la hipotesis nul·la, els dos models no són equivalents.
+```{r}
+BIC(m1,m2)
+```
+
+Ens quedem amb el model dos ja que com hem vist anteriorment és millor model que el inicial, ja que m2 te un BIC inferior.
+
+## Afegir factors
+
+```{r}
+out<-catdes(dfwork[,c("y.bin",vars_edisc)],1); out[1]
+```
+Amb les variables factors, també veiem que ens pasa algo similar que amb les numériques, en principi són rellevants totes a excepció de f.continent, també observem que aquelles que semblen més rellevants són relationship, f.marital ,occupation i f.hpw . Tot i que ens diu que totes són importants, escollirem aquelles que són de major importància (p-valor, més petit)
+
+```{r}
+m3<- glm(y.bin~(poly(age,2)+education.num+capital.gain+capital.loss+hr.per.week)+occupation+relationship+race+sex+f.type+f.marital+f.education,family=binomial,data=dfwork)
+
+anova(m2,m3,test="Chisq")
+
+BIC(m2,m3)
+```
+
+Un cop construit el model amb els factors afegits, fem un step, per veure quins dels factors afegits no són rellevants
+Rebutjem hipotesis nul·la de que m2 i m3 són equivalents, i veiem que el model m3 és millor que el model m2, per tant seguim treballant amb el m3.
+
+```{r}
+m4<-step(m3, k = log(nrow(dfwork)))
+summary(m4)
+
+```
+Ens quedem com a factors rellevants amb "sex" i "relationship"
+
+## Afegir interaccions
+
+```{r}
+
+m5<- glm(y.bin~(poly(age,2)+education.num+capital.gain+capital.loss+hr.per.week)*(sex+relationship), family = binomial, data = dfwork)
+```
+Un cop creat el model amb interaccions, anem a veure si el podem reduïr, eliminant coses irrellevants.
+
+```{r}
+m5a<- glm(y.bin~(poly(age,2)+education.num+capital.gain+capital.loss+hr.per.week)*(sex)+relationship, family = binomial, data = dfwork)
+m5b<- glm(y.bin~(poly(age,2)+education.num+capital.gain+capital.loss+hr.per.week)*(relationship)+sex, family = binomial, data = dfwork)
+
+BIC(m5,m5a,m5b)
+```
+Veiem que afegint les intereccions, el millor model es el que només afegeix interacció amb sex. Per tant deixarem la interacció de sex amb la resta de variables
+
+## Detecció outliers i influents
+
+```{r}
+plot(allEffects(m5a))
+
+Boxplot(rstudent(m5a), id.n=2)
+abline(h=c(3,-3),col="red",lwd=2)
+
+out <- which(rstudent(m5a) >= 3 | rstudent(m5a) <= -3);length(out)
+
+```
+Podem apreciar que hi han poc outliers, i no són molt extrems per tant no els tindrem en compte. Per cert cal remarcar que hem apujat el valor a 3, per intentar no ser massa estrictes.
+
+
+```{r}
+influencePlot(m5a,id=list(method="noteworthy",n=5))
+```
+Veiem que hi ha varis individus que sembla que són bastant influents
+
+```{r}
+df["15893",]
+```
+Observem aquell individu més influent, veiem que es una dona de 90 anys, que treballa a Europa, podem apreciar que com bé sabem això no es una situació habitual, i es normal que aquest individu tingui una gran contribució.
+
+## Model Final
+
+```{r}
+mfinal<-m5a
+```
+
+### Interpretació del model
+
+```{r}
+summary(mfinal)
+```
+Farem una predicció manual per la següent entrada:
+age = 22
+education.num = 12
+capital.gain = capital.loss = 0
+hr.per.week = 25
+sexMale
+Unmarried
+
+predict = -7.18 + 21*(0.29 -0.23)+ 12*0.4 + 25*(0.035) + 0.65 - 2.04 +7.25 -4.17 -0.009 + 0.00006 -0.00008 + 0.0014
+
+Dona com a resultat 1.43738 que com sabem aixó vol dir que tindrà bastantes possibilitats de guanyar més de 50k anuals.
+
+## Evaluació Del model
+
+### Amb el dfWork
+
+#### Confusion Matrix
+
+Creem la confusion matrix del dfwork
+
+```{r}
+predictModelFinal<- factor(ifelse(predict(mfinal,type="response")<0.5,0,1),labels=c("Pre-<50","pre->50"))
+conf<-table(predictModelFinal,dfwork$y.bin);conf
+```
+Com bé sabem la diagonal ens indica quan descendent d'esquerra a dreta, es la que ens indica quan bo es el nostre model, quan major és millor es el model.
+
+#### Capacitat predictiva del model
+```{r}
+perpc<-100*(sum(diag(conf))/sum(nrow(dfwork)))
+print(perpc)
+m0<-glm(y.bin~1,family=binomial,data=dfwork) #model nul
+m0<- factor(ifelse(predict(m0,type="response")<0.5,0,1),labels=c("Pre-<50"))
+conf0<-table(m0,dfwork$y.bin);
+#Capacitat predictiva 
+perpc0<-100*(conf0[1,1]/sum(nrow(dfwork)))
+print(perpc0)
+```
+Tenim una capacitat predictiva del 85.05656, el comparem amb el model nul, i veiem que hem conseguit un increment d'un 10 % practicament, amb el que ens quedem conformes amb el resultat obtingut.
+
+
+
+### Amb el dftest
+
+En aquest apartat comprobarem que el model no esta sobre ajustat, i que funciona de forma correcte sobre dades que no ha vist al entrenar el model.
+
+#### Confusion Matrix
+
+Creem la confusion matrix del dftest
+```{r}
+predictModelFinalTest<- factor(ifelse(predict(mfinal,newdata=dftest,type="response")<0.5,0,1),labels=c("Pre-<50","pre->50"))
+confTest<-table(predictModelFinalTest,dftest$y.bin);confTest
+```
+
+#### Capacitat predictiva 
+```{r}
+perpcTest<-100*(sum(diag(confTest))/sum(nrow(dftest)))
+print(perpcTest)
+#Capacitat Predictiva del 85 per cent
+
+m0<-glm(y.bin~1,family=binomial,data=dfwork) #model nul
+m0Test<- factor(ifelse(predict(m0,newdata=dftest,type="response")<0.5,0,1),labels=c("Pre-<50"))
+conf0Test<-table(m0Test,dftest$y.bin);
+#Capacitat predictiva 
+perpc0Test<-100*(conf0Test[1,1]/sum(nrow(dftest)))
+print(perpc0Test)
+```
+
+Hem vist que tant amb les dades de test com amb les de work, el model ens dona una resposta bastant bona, i acceptable. Veiem que els models no s'havien sobre ajustat.
+
+

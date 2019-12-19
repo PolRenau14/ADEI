@@ -6,11 +6,12 @@ library(rgl)
 library(effects)
 
 load("mostra2.RData")
-summary(df)
 install.packages(c("ROCR"))
 library(ROCR)
 install.packages(("FactoMineR"))
 library(FactoMineR)
+
+summary(df)
 names(df)
 set.seed(14121997)
 ll<-sample(1:nrow(df),nrow(df)*0.75)
